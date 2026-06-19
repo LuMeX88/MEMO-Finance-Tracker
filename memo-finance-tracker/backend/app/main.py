@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, SessionLocal, engine
@@ -121,12 +122,33 @@ def health():
 
 # ---------------------------------------------------------------------------
 # Serve the built frontend (single-container / Home Assistant add-on).
-# Mounted last so it only catches paths not handled by the API or /docs.
 # In local dev there is no build, so this is skipped and the SPA runs on Vite.
+#
+# NOTE: we deliberately do NOT mount StaticFiles at "/". A catch-all mount at
+# the site root shadows FastAPI's trailing-slash redirects, so a request to a
+# collection endpoint without the slash (e.g. "/api/v1/categories", which the
+# frontend uses) would be swallowed by StaticFiles and return 404 instead of
+# redirecting to "/api/v1/categories/". Mounting only "/assets" plus
+# single-segment root-file routes keeps every "/api/v1/..." path intact.
 # ---------------------------------------------------------------------------
 _STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 if _STATIC_DIR.is_dir():
-    app.mount("/", StaticFiles(directory=_STATIC_DIR, html=True), name="frontend")
+    _INDEX_FILE = _STATIC_DIR / "index.html"
+    app.mount("/assets", StaticFiles(directory=_STATIC_DIR / "assets"), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    def serve_index():
+        return FileResponse(_INDEX_FILE)
+
+    @app.get("/{filename}", include_in_schema=False)
+    def serve_spa(filename: str):
+        # Single-segment paths only, so multi-segment "/api/v1/..." routes keep
+        # working (including the trailing-slash redirects). Serve a real
+        # root-level file when present, otherwise fall back to the SPA shell.
+        candidate = (_STATIC_DIR / filename).resolve()
+        if candidate.is_file() and _STATIC_DIR.resolve() in candidate.parents:
+            return FileResponse(candidate)
+        return FileResponse(_INDEX_FILE)
 else:
     @app.get("/", tags=["health"])
     def root():

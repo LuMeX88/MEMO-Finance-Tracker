@@ -1,6 +1,10 @@
 # MEMO – Finance Tracker — Home Assistant add-on image
 # Build context = this add-on folder (memo-finance-tracker/)
 
+# Global build arg (must be declared before the first FROM so it can be used by
+# the runtime stage's FROM). The Supervisor overrides it per architecture.
+ARG BUILD_FROM=ghcr.io/home-assistant/base:3.23
+
 # ---------- Stage 1: build the React / Vite frontend ----------
 FROM node:20-alpine AS frontend
 WORKDIR /build
@@ -12,7 +16,6 @@ COPY frontend/ ./
 RUN npx vite build
 
 # ---------- Stage 2: runtime on the Home Assistant base image ----------
-ARG BUILD_FROM=ghcr.io/home-assistant/base:3.23
 FROM ${BUILD_FROM}
 
 ENV LANG=C.UTF-8 \
