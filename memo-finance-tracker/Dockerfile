@@ -24,8 +24,16 @@ ENV LANG=C.UTF-8 \
     VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
 
-# Python runtime + Tesseract OCR engine (used for optional receipt scanning)
-RUN apk add --no-cache python3 py3-pip tesseract-ocr \
+# Python runtime + Tesseract OCR engine and language data (English + German)
+# for the optional receipt-scanning feature. On Alpine the engine and the
+# trained language data are separate packages; without the *-data-* packages
+# tesseract has zero languages and every OCR call fails ("OCR not available").
+RUN apk add --no-cache \
+        python3 \
+        py3-pip \
+        tesseract-ocr \
+        tesseract-ocr-data-eng \
+        tesseract-ocr-data-deu \
     && python3 -m venv "${VIRTUAL_ENV}"
 
 WORKDIR /app
