@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Hide scrollbars while keeping scroll functionality */
+[style*="scrollbarWidth: 'none'"],
+[style*="scrollbar-width: none"] {
+  -ms-overflow-style: none;
+}
+[style*="scrollbarWidth: 'none'"]::-webkit-scrollbar,
+[style*="scrollbar-width: none"]::-webkit-scrollbar {
+  display: none;
+}
+
+/* Utility class for no-scrollbar (used with overflow-auto/scroll) */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

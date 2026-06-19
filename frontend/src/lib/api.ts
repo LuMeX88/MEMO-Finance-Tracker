@@ -1,0 +1,246 @@
+import type {
+  Category,
+  CategoryReport,
+  ComparisonReport,
+  ForecastResponse,
+  OcrResult,
+  Project,
+  ReportSummary,
+  Schedule,
+  ScheduleSuggestion,
+  TimelineEntry,
+  Transaction,
+} from '@/types'
+
+const BASE_URL =
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  'http://localhost:8000/api/v1'
+
+async function request<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+    ...options,
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText)
+    throw new Error(`API error ${response.status}: ${message}`)
+  }
+
+  if (response.status === 204) {
+    return undefined as unknown as T
+  }
+
+  return response.json() as Promise<T>
+}
+
+function toQueryString(params?: Record<string, string | number | boolean | undefined>): string {
+  if (!params) return ''
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined)
+  if (entries.length === 0) return ''
+  return '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()
+}
+
+// ── Transactions ──────────────────────────────────────────────────────────────
+
+export type TransactionParams = {
+  start_date?: string
+  end_date?: string
+  category_id?: number
+  project_id?: number
+  type?: 'income' | 'expense'
+  limit?: number
+  offset?: number
+}
+
+export function getTransactions(params?: TransactionParams): Promise<Transaction[]> {
+  return request<Transaction[]>(`/transactions${toQueryString(params)}`)
+}
+
+export function createTransaction(
+  data: Omit<Transaction, 'id' | 'created_at' | 'category' | 'project'>,
+): Promise<Transaction> {
+  return request<Transaction>('/transactions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateTransaction(
+  id: number,
+  data: Partial<Omit<Transaction, 'id' | 'created_at' | 'category' | 'project'>>,
+): Promise<Transaction> {
+  return request<Transaction>(`/transactions/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteTransaction(id: number): Promise<void> {
+  return request<void>(`/transactions/${id}`, { method: 'DELETE' })
+}
+
+// ── Categories ────────────────────────────────────────────────────────────────
+
+export function getCategories(): Promise<Category[]> {
+  return request<Category[]>('/categories')
+}
+
+export function createCategory(
+  data: Omit<Category, 'id' | 'created_at'>,
+): Promise<Category> {
+  return request<Category>('/categories', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateCategory(
+  id: number,
+  data: Partial<Omit<Category, 'id' | 'created_at'>>,
+): Promise<Category> {
+  return request<Category>(`/categories/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteCategory(id: number): Promise<void> {
+  return request<void>(`/categories/${id}`, { method: 'DELETE' })
+}
+
+// ── Projects ──────────────────────────────────────────────────────────────────
+
+export function getProjects(): Promise<Project[]> {
+  return request<Project[]>('/projects')
+}
+
+export function createProject(
+  data: Omit<Project, 'id' | 'created_at'>,
+): Promise<Project> {
+  return request<Project>('/projects', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateProject(
+  id: number,
+  data: Partial<Omit<Project, 'id' | 'created_at'>>,
+): Promise<Project> {
+  return request<Project>(`/projects/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteProject(id: number): Promise<void> {
+  return request<void>(`/projects/${id}`, { method: 'DELETE' })
+}
+
+// ── Schedules ─────────────────────────────────────────────────────────────────
+
+export function getSchedules(): Promise<Schedule[]> {
+  return request<Schedule[]>('/schedules')
+}
+
+export function createSchedule(
+  data: Omit<Schedule, 'id' | 'created_at' | 'category'>,
+): Promise<Schedule> {
+  return request<Schedule>('/schedules', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateSchedule(
+  id: number,
+  data: Partial<Omit<Schedule, 'id' | 'created_at' | 'category'>>,
+): Promise<Schedule> {
+  return request<Schedule>(`/schedules/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteSchedule(id: number): Promise<void> {
+  return request<void>(`/schedules/${id}`, { method: 'DELETE' })
+}
+
+// ── Reports ───────────────────────────────────────────────────────────────────
+
+export type ReportParams = {
+  start_date?: string
+  end_date?: string
+}
+
+export function getReportSummary(params?: ReportParams): Promise<ReportSummary> {
+  return request<ReportSummary>(`/reports/summary${toQueryString(params)}`)
+}
+
+export function getReportByCategory(params?: ReportParams): Promise<CategoryReport[]> {
+  return request<CategoryReport[]>(`/reports/by-category${toQueryString(params)}`)
+}
+
+export function getReportTimeline(params?: ReportParams): Promise<TimelineEntry[]> {
+  return request<TimelineEntry[]>(`/reports/timeline${toQueryString(params)}`)
+}
+
+export function getReportComparison(): Promise<ComparisonReport> {
+  return request<ComparisonReport>('/reports/comparison')
+}
+
+// ── Receipts ──────────────────────────────────────────────────────────────────
+
+export async function scanReceipt(file: File): Promise<OcrResult> {
+  const form = new FormData()
+  form.append('file', file)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30_000)
+  try {
+    const res = await fetch(`${BASE_URL}/receipts/scan`, {
+      method: 'POST',
+      body: form,
+      signal: controller.signal,
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json() as Promise<OcrResult>
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+// ── Suggestions ───────────────────────────────────────────────────────────────
+
+export async function getSuggestions(): Promise<ScheduleSuggestion[]> {
+  const res = await fetch(`${BASE_URL}/suggestions`)
+  if (!res.ok) throw new Error(await res.text())
+  return res.json() as Promise<ScheduleSuggestion[]>
+}
+
+export async function respondSuggestion(
+  id: number,
+  action: 'accept' | 'reject' | 'snooze',
+): Promise<void> {
+  await fetch(`${BASE_URL}/suggestions/${id}/${action}`, { method: 'POST' })
+}
+
+export async function detectPatterns(): Promise<{ new_suggestions: number }> {
+  const res = await fetch(`${BASE_URL}/suggestions/detect`, { method: 'POST' })
+  return res.json() as Promise<{ new_suggestions: number }>
+}
+
+// ── Forecast ──────────────────────────────────────────────────────────────────
+
+export async function getForecast(months?: number): Promise<ForecastResponse> {
+  const params = months ? `?months=${months}` : ''
+  const res = await fetch(`${BASE_URL}/forecast${params}`)
+  if (!res.ok) throw new Error(await res.text())
+  return res.json() as Promise<ForecastResponse>
+}
