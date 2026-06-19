@@ -1,6 +1,34 @@
-# HA-Budgeting
+# MEMO – Finance Tracker
+### *own your finances*
 
-> Personal Expenses Management Tool — Standalone Web App (MVP), HA-ready
+> **MEMO** stands for **M**oney & **E**xpense **M**anagement **O**verview
+
+A modern, lightweight personal finance tracker built as a standalone web app, designed to be fully integrated into [Home Assistant](https://www.home-assistant.io/). MEMO runs 100% locally – no cloud, no subscriptions, no external dependencies. Just you and your money.
+
+---
+
+## Why MEMO?
+
+Most finance apps live in the cloud, share your data, and cost a monthly fee. MEMO is different. It runs on your own hardware, stores everything locally in SQLite, and integrates natively with Home Assistant's user management. Your data never leaves your home.
+
+---
+
+## Features
+
+- **Dashboard** – Real-time overview of income, expenses, balance and trends
+- **Transactions** – Log income and expenses with category, recipient, payment method and optional notes
+- **Schedules** – Manage recurring costs (rent, subscriptions, utilities) with fixed or variable amounts
+- **Forecasting** – Automatic monthly, 3-month and yearly expense forecast based on schedules and spending averages
+- **Reports** – Total income, total expenses, monthly averages, biggest transactions and period comparisons
+- **Categories & Projects** – Fully customizable categories with icons and colors, project budgets with progress tracking
+- **Transaction Calendar** – Heatmap-style calendar view of all transactions
+- **OCR Receipt Scanning** – Photograph receipts directly in the app. Tesseract OCR runs locally and auto-fills amount, date and recipient as a suggestion
+- **Smart Schedule Suggestions** – The app detects recurring patterns in your transactions and suggests turning them into schedules automatically
+- **HA Sensor Entities** – Key metrics exposed as Home Assistant sensors for dashboards and automations
+- **Multi-user** – Access control via Home Assistant's built-in user management
+- **Export** – CSV and PDF export for reports and tax purposes
+- **Multilingual** – German and English
+- **Light / Dark Mode**
 
 ---
 
@@ -8,164 +36,56 @@
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 + TypeScript + Vite + Tailwind CSS |
-| State / Data | Zustand + TanStack Query v5 |
-| Charts | Recharts |
-| Backend | FastAPI + SQLAlchemy |
-| Database | SQLite |
-| Containerization | Docker + docker-compose |
+| Frontend | React, Mobile-first, Tailwind CSS |
+| Backend | Python, REST API |
+| Database | SQLite (local, on HA server) |
+| OCR | Tesseract via pytesseract + Pillow |
+| Pattern Matching | rapidfuzz |
+| Integration | Home Assistant Custom Component |
+| Auth | Home Assistant User Management |
+
+> The app is built as a standalone web app first, with clean separation of concerns so the Home Assistant integration requires no major refactoring.
 
 ---
 
-## Project Structure
+## Home Assistant Sensor Entities
 
+```yaml
+sensor.memo_expenses_this_month
+sensor.memo_income_this_month
+sensor.memo_balance_this_month
+sensor.memo_expenses_today
+sensor.memo_last_transaction_amount
+sensor.memo_last_transaction_recipient
+sensor.memo_budget_remaining_[category]
+sensor.memo_next_scheduled_expense
+sensor.memo_scheduled_expenses_this_month
 ```
-HA-Budgeting/
-├── backend/
-│   ├── app/
-│   │   ├── main.py           # FastAPI app, CORS, startup seed
-│   │   ├── database.py       # SQLAlchemy engine + session
-│   │   ├── models/           # ORM models (Category, Project, Transaction, Schedule)
-│   │   ├── schemas/          # Pydantic v2 schemas
-│   │   └── routers/          # API endpoints
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── pages/            # Dashboard, Schedules, Reports, CategoriesPage, Settings, Transactions
-│   │   ├── components/
-│   │   │   ├── layout/       # AppLayout (sidebar + bottom nav)
-│   │   │   ├── transactions/ # TransactionForm, QuickAddModal, TransactionList
-│   │   │   └── ui/           # Button, Input, Select, Modal, Toast, EmptyState
-│   │   ├── lib/
-│   │   │   ├── api.ts        # Typed fetch API client
-│   │   │   └── utils.ts      # cn(), formatCurrency(), formatDate(), getDaysUntil()
-│   │   ├── store/
-│   │   │   ├── useSettingsStore.ts  # currency, language, theme (persisted)
-│   │   │   └── useUIStore.ts        # quickAdd, toasts
-│   │   └── types/index.ts    # All TypeScript interfaces
-│   ├── nginx.conf
-│   └── Dockerfile
-└── docker-compose.yml
-```
-
----
-
-## Getting Started (Development)
-
-### Prerequisites
-- Python 3.11+
-- Node.js 20+
-
-### Backend
-
-```powershell
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-# API: http://localhost:8000
-# Swagger docs: http://localhost:8000/docs
-```
-
-On first start, 8 default categories (Food & Drinks, Transport, Housing, ...) are seeded automatically.
-
-### Frontend
-
-```powershell
-cd frontend
-npm install
-npm run dev
-# App: http://localhost:5173
-```
-
-Create `frontend/.env.local`:
-```
-VITE_API_URL=http://localhost:8000/api/v1
-```
-
----
-
-## Running with Docker
-
-```powershell
-docker-compose up --build
-# Frontend: http://localhost:3000
-# Backend API: http://localhost:8000
-```
-
-SQLite data is persisted in a Docker volume (`sqlite_data`).
-
----
-
-## API Reference
-
-Base URL: `http://localhost:8000/api/v1`
-
-| Method | Path | Description |
-|---|---|---|
-| GET/POST | `/transactions` | List (filterable) + create |
-| GET/PUT/DELETE | `/transactions/{id}` | Detail, update, delete |
-| GET/POST | `/categories` | List + create |
-| GET/PUT/DELETE | `/categories/{id}` | Detail, update, delete |
-| GET/POST | `/projects` | List + create |
-| GET/PUT/DELETE | `/projects/{id}` | Detail, update, delete |
-| GET/POST | `/schedules` | List + create |
-| GET/PUT/DELETE | `/schedules/{id}` | Detail, update, delete |
-| GET | `/reports/summary` | KPI summary (date_from, date_to) |
-| GET | `/reports/by-category` | Expenses per category |
-| GET | `/reports/timeline` | Daily income/expense timeline |
-| GET | `/reports/comparison` | Current vs previous vs same month last year |
-
----
-
-## Features
-
-### Dashboard
-- KPI cards: expenses, income, balance, avg/transaction
-- Trend chart: this week vs last week
-- Category budget progress bars
-- Recent transactions list
-- Quick-Add FAB (opens fast transaction entry modal)
-
-### Schedules (Recurring Costs)
-- Fixed or variable amounts
-- Weekly / Monthly / Yearly intervals
-- Countdown to next due date
-- Forecasting: 1 / 3 / 12 month preview with bar chart
-
-### Reports
-- Configurable date range
-- Category donut chart
-- Timeline bar chart
-- Month-over-month comparison
-- CSV + PDF export
-
-### Categories & Projects
-- Custom icon (emoji) + color per category
-- Archive instead of delete
-- Projects with optional budget + end date
-- Budget progress tracking
-- Activity heatmap (GitHub-style, last 12 months)
-
-### Settings
-- Currency: CHF / EUR / USD / GBP
-- Language: Deutsch / English
-- Theme: Light / Dark
-- Default category
-- Data export (JSON / CSV)
 
 ---
 
 ## Roadmap
 
-### Phase 2 — Home Assistant Integration
-- FastAPI backend packaged as HA Custom Component (HACS)
-- HA Sensors: `sensor.expenses_this_month`, `sensor.income_this_month`, `sensor.balance_this_month`, `sensor.expenses_today`, `sensor.last_transaction_amount`, `sensor.budget_remaining_[category]`, `sensor.next_scheduled_expense`
-- HA authentication (no separate login needed)
-- Lovelace card for quick transaction entry
+- [x] Core transaction management
+- [x] Schedules & forecasting
+- [x] OCR receipt scanning (local, Tesseract)
+- [x] Smart schedule suggestions
+- [x] HA sensor entities
+- [?] Savings goals
+- [?] Multi-account / wallet support
+- [?] Household splitting (shared expenses)
+
+
+---
+
+## Philosophy
+
+> local. private. yours.
+
+MEMO is built on the belief that your financial data belongs to you and only you. No accounts, no sync, no telemetry. Everything runs on your own machine, backed up with your Home Assistant backup.
 
 ---
 
 ## License
 
-MIT
+ GNU GENERAL PUBLIC LICENSE Version 3
