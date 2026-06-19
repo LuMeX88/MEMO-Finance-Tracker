@@ -88,4 +88,4 @@ MEMO is built on the belief that your financial data belongs to you and only you
 
 ## License
 
-MIT
+ GNU GENERAL PUBLIC LICENSE Version 3
