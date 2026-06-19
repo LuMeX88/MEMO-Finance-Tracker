@@ -197,8 +197,34 @@ export function getReportSummary(params?: ReportParams): Promise<ReportSummary> 
   return request<ReportSummary>(`/reports/summary${toQueryString(params)}`)
 }
 
-export function getReportByCategory(params?: ReportParams): Promise<CategoryReport[]> {
-  return request<CategoryReport[]>(`/reports/by-category${toQueryString(params)}`)
+// The backend returns category totals as flat fields; the UI expects a nested
+// `category` object plus a computed `percentage`. Map it here so every consumer
+// (Dashboard + Reports) gets a consistent shape.
+interface RawCategoryTotal {
+  category_id: number
+  category_name: string
+  category_icon: string
+  category_color: string
+  total: number
+  count: number
+}
+
+export async function getReportByCategory(params?: ReportParams): Promise<CategoryReport[]> {
+  const raw = await request<RawCategoryTotal[]>(`/reports/by-category${toQueryString(params)}`)
+  const grandTotal = raw.reduce((sum, r) => sum + r.total, 0)
+  return raw.map((r) => ({
+    category: {
+      id: r.category_id,
+      name: r.category_name,
+      icon: r.category_icon,
+      color: r.category_color,
+      archived: false,
+      created_at: '',
+    },
+    total: r.total,
+    count: r.count,
+    percentage: grandTotal > 0 ? (r.total / grandTotal) * 100 : 0,
+  }))
 }
 
 export function getReportTimeline(params?: ReportParams): Promise<TimelineEntry[]> {
