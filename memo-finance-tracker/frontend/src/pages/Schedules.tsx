@@ -16,7 +16,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import EmptyState from '@/components/ui/EmptyState'
-import { useT } from '@/lib/i18n'
+import { useT, type TKey } from '@/lib/i18n'
 
 type ScheduleFormData = {
   name: string
@@ -29,19 +29,13 @@ type ScheduleFormData = {
   active: boolean
 }
 
-const INTERVAL_LABELS: Record<Schedule['interval'], string> = {
-  weekly: 'Wöchentlich',
-  monthly: 'Monatlich',
-  yearly: 'Jährlich',
-}
-
 const INTERVAL_BADGE: Record<Schedule['interval'], string> = {
   weekly: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   monthly: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   yearly: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
 }
 
-function getDueLabel(daysUntil: number, t: (key: string, vars?: Record<string, string | number>) => string): { text: string; className: string } {
+function getDueLabel(daysUntil: number, t: (key: TKey, vars?: Record<string, string | number>) => string): { text: string; className: string } {
   if (daysUntil < 0)
     return { text: t('schedules.overdue'), className: 'text-red-600 dark:text-red-400 font-semibold' }
   if (daysUntil === 0)

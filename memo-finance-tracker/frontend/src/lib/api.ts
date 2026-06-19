@@ -12,9 +12,22 @@ import type {
   Transaction,
 } from '@/types'
 
-const BASE_URL =
-  (import.meta.env.VITE_API_URL as string | undefined) ??
-  'http://localhost:8000/api/v1'
+// Resolve the API base URL so it works in every deployment scenario:
+//  - Vite dev server (proxies /api -> :8000)
+//  - single-container add-on (FastAPI serves the SPA at site root)
+//  - behind Home Assistant ingress (served under /api/hassio_ingress/<token>/)
+// An explicit VITE_API_URL still overrides everything (e.g. a separate host).
+function resolveBaseUrl(): string {
+  const override = import.meta.env.VITE_API_URL as string | undefined
+  if (override) return override
+  if (typeof window !== 'undefined') {
+    const base = window.location.pathname.replace(/\/+$/, '')
+    return `${base}/api/v1`
+  }
+  return '/api/v1'
+}
+
+const BASE_URL = resolveBaseUrl()
 
 async function request<T>(
   path: string,

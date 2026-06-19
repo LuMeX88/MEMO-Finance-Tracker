@@ -223,6 +223,7 @@ const en: Record<keyof typeof de, string> = {
   'action.newIncome': 'New Income',
   'action.newProject': 'New Project',
   'action.newCategory': 'New Category',
+  'action.scanReceipt': 'Scan Receipt',
   'action.save': 'Save',
   'action.cancel': 'Cancel',
   'action.create': 'Create',

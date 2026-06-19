@@ -292,7 +292,22 @@ export default function Dashboard() {
               axisLine={false}
               tickLine={false}
             />
-            <Tooltip content={(props) => <ChartTooltip {...props} currency={currency} />} />
+            <Tooltip
+              content={({ active, payload, label }) => (
+                <ChartTooltip
+                  active={active}
+                  payload={
+                    payload as unknown as Array<{
+                      name: string
+                      value: number
+                      color: string
+                    }>
+                  }
+                  label={label as string | undefined}
+                  currency={currency}
+                />
+              )}
+            />
             <Area
               type="monotone"
               dataKey="letzteWoche"

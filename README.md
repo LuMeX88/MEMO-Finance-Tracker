@@ -3,13 +3,28 @@
 
 > **MEMO** stands for **M**oney & **E**xpense **M**anagement **O**verview
 
-A modern, lightweight personal finance tracker built as a standalone web app, designed to be fully integrated into [Home Assistant](https://www.home-assistant.io/). MEMO runs 100% locally – no cloud, no subscriptions, no external dependencies. Just you and your money.
+A modern, lightweight personal finance tracker that runs as a **Home Assistant add-on**. MEMO runs 100% locally – no cloud, no subscriptions, no external dependencies. Just you and your money. Key metrics are published straight into Home Assistant as sensors over **MQTT**, so you can build dashboards and automations around your finances.
+
+---
+
+## ⚠️ Prerequisites
+
+MEMO integrates with Home Assistant through **MQTT**. Before installing, make sure you have:
+
+| Requirement | Notes |
+|---|---|
+| **Home Assistant OS or Supervised** | Required to install add-ons. |
+| **MQTT broker — [Mosquitto add-on](https://github.com/home-assistant/addons/tree/master/mosquitto)** | **Required.** Install *Mosquitto broker* from **Settings → Add-ons → Add-on Store** and start it. |
+| **MQTT integration enabled** | **Settings → Devices & Services → Add Integration → MQTT**, pointed at your broker. This is what turns MEMO's published topics into sensor entities via MQTT Discovery. |
+| **MQTT user / credentials** | Create a Home Assistant user (or Mosquitto local user) for MEMO to authenticate against the broker. |
+
+> Without a running MQTT broker (Mosquitto) and the MQTT integration, MEMO still works as a finance app, but **no Home Assistant sensor entities will be created**.
 
 ---
 
 ## Why MEMO?
 
-Most finance apps live in the cloud, share your data, and cost a monthly fee. MEMO is different. It runs on your own hardware, stores everything locally in SQLite, and integrates natively with Home Assistant's user management. Your data never leaves your home.
+Most finance apps live in the cloud, share your data, and cost a monthly fee. MEMO is different. It runs on your own hardware, stores everything locally in SQLite, and integrates natively with Home Assistant — including single sign-on through the Home Assistant sidebar (Ingress). Your data never leaves your home.
 
 ---
 
@@ -21,14 +36,61 @@ Most finance apps live in the cloud, share your data, and cost a monthly fee. ME
 - **Forecasting** – Automatic monthly, 3-month and yearly expense forecast based on schedules and spending averages
 - **Reports** – Total income, total expenses, monthly averages, biggest transactions and period comparisons
 - **Categories & Projects** – Fully customizable categories with icons and colors, project budgets with progress tracking
-- **Transaction Calendar** – Heatmap-style calendar view of all transactions
 - **OCR Receipt Scanning** – Photograph receipts directly in the app. Tesseract OCR runs locally and auto-fills amount, date and recipient as a suggestion
 - **Smart Schedule Suggestions** – The app detects recurring patterns in your transactions and suggests turning them into schedules automatically
-- **HA Sensor Entities** – Key metrics exposed as Home Assistant sensors for dashboards and automations
-- **Multi-user** – Access control via Home Assistant's built-in user management
-- **Export** – CSV and PDF export for reports and tax purposes
+- **MQTT Sensor Entities** – Key metrics published to Home Assistant via MQTT Discovery (see below)
+- **Home Assistant Ingress** – Open MEMO straight from the HA sidebar; authentication handled by Home Assistant
 - **Multilingual** – German and English
 - **Light / Dark Mode**
+
+---
+
+## Installation (Home Assistant add-on)
+
+1. In Home Assistant, go to **Settings → Add-ons → Add-on Store**.
+2. Open the **⋮ menu (top-right) → Repositories**, paste this repository URL and click **Add**:
+   ```
+   https://github.com/LuMeX88/MEMO-Finance-Tracker
+   ```
+3. Install the **MEMO – Finance Tracker** add-on from the store.
+4. Open the add-on **Configuration** tab and enter your MQTT broker details (see below).
+5. **Start** the add-on, then click **Open Web UI** (or use the MEMO entry in the sidebar).
+
+> Make sure the **Mosquitto broker** add-on is installed and running **before** starting MEMO (see [Prerequisites](#️-prerequisites)).
+
+---
+
+## Configuration
+
+The add-on exposes the following options:
+
+| Option | Default | Description |
+|---|---|---|
+| `mqtt_host` | `core-mosquitto` | Hostname of your MQTT broker. Use `core-mosquitto` for the official Mosquitto add-on. |
+| `mqtt_port` | `1883` | MQTT broker port. |
+| `mqtt_username` | – | MQTT username (a Home Assistant / Mosquitto user). |
+| `mqtt_password` | – | MQTT password. |
+| `mqtt_base_topic` | `memo` | Base topic MEMO publishes to. |
+| `mqtt_discovery_prefix` | `homeassistant` | Home Assistant MQTT Discovery prefix. |
+| `mqtt_currency` | `€` | Currency unit used for the monetary sensors. |
+| `mqtt_publish_interval` | `300` | How often (in seconds) metrics are re-published. |
+
+The SQLite database is stored in the add-on's persistent `/data` volume and is included in Home Assistant backups.
+
+---
+
+## Home Assistant Sensor Entities
+
+Once MQTT is configured, MEMO registers a **MEMO Finance Tracker** device with these sensors via MQTT Discovery:
+
+```yaml
+sensor.memo_income_this_month          # device_class: monetary
+sensor.memo_expenses_this_month        # device_class: monetary
+sensor.memo_balance_this_month         # device_class: monetary
+sensor.memo_transactions_this_month    # count of transactions this month
+```
+
+These can be used directly in dashboards, history graphs and automations (e.g. "notify me when monthly expenses exceed €X").
 
 ---
 
@@ -36,45 +98,41 @@ Most finance apps live in the cloud, share your data, and cost a monthly fee. ME
 
 | Layer | Technology |
 |---|---|
-| Frontend | React, Mobile-first, Tailwind CSS |
-| Backend | Python, REST API |
-| Database | SQLite (local, on HA server) |
+| Frontend | React + TypeScript + Vite + Tailwind CSS |
+| Backend | FastAPI (serves both the REST API and the built frontend) |
+| Database | SQLite (local, in `/data`) |
 | OCR | Tesseract via pytesseract + Pillow |
 | Pattern Matching | rapidfuzz |
-| Integration | Home Assistant Custom Component |
-| Auth | Home Assistant User Management |
+| HA Integration | MQTT Discovery (paho-mqtt) + Ingress |
+| Auth | Home Assistant (via Ingress) |
 
-> The app is built as a standalone web app first, with clean separation of concerns so the Home Assistant integration requires no major refactoring.
+The add-on runs as a **single container**: FastAPI serves the compiled React app and the API on one port, which Home Assistant exposes through Ingress.
 
 ---
 
-## Home Assistant Sensor Entities
+## Development / Standalone
 
-```yaml
-sensor.memo_expenses_this_month
-sensor.memo_income_this_month
-sensor.memo_balance_this_month
-sensor.memo_expenses_today
-sensor.memo_last_transaction_amount
-sensor.memo_last_transaction_recipient
-sensor.memo_budget_remaining_[category]
-sensor.memo_next_scheduled_expense
-sensor.memo_scheduled_expenses_this_month
+MEMO can also run outside Home Assistant for development.
+
+**Docker (standalone):**
+```bash
+docker compose up --build
+# frontend: http://localhost:3000   backend: http://localhost:8000
 ```
 
----
+**Local dev (hot reload):**
+```bash
+# Backend
+cd backend
+python -m uvicorn app.main:app --reload --port 8000
 
-## Roadmap
+# Frontend (separate terminal)
+cd frontend
+npm install
+npm run dev          # http://localhost:5173 (proxies /api to :8000)
+```
 
-- [x] Core transaction management
-- [x] Schedules & forecasting
-- [x] OCR receipt scanning (local, Tesseract)
-- [x] Smart schedule suggestions
-- [x] HA sensor entities
-- [?] Savings goals
-- [?] Multi-account / wallet support
-- [?] Household splitting (shared expenses)
-
+To enable MQTT in standalone/dev mode, copy `backend/.env.example` to `backend/.env` and set `MQTT_HOST` (and credentials). If `MQTT_HOST` is empty, the MQTT feature stays disabled and the app runs normally.
 
 ---
 
@@ -88,4 +146,4 @@ MEMO is built on the belief that your financial data belongs to you and only you
 
 ## License
 
- GNU GENERAL PUBLIC LICENSE Version 3
+GNU GENERAL PUBLIC LICENSE Version 3

@@ -1,9 +1,14 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, SessionLocal, engine
+from app.services.mqtt_publisher import MqttPublisher
 
 # Import all models so SQLAlchemy registers them before create_all
 from app.models import Category, IntervalType, Project, Schedule, ScheduleSuggestion, SuggestionStatus, Transaction, TransactionType  # noqa: F401
@@ -24,9 +29,21 @@ _DEFAULT_CATEGORIES = [
     {"name": "Other",         "icon": "📦", "color": "#B0B0B0"},
 ]
 
+logger = logging.getLogger("memo")
+
+
+async def _mqtt_publish_loop(publisher: MqttPublisher) -> None:
+    """Periodically push current metrics to the MQTT broker."""
+    while True:
+        await asyncio.sleep(publisher.publish_interval)
+        try:
+            await asyncio.to_thread(publisher.publish_state)
+        except Exception:  # pragma: no cover - keep the loop alive
+            logger.exception("Periodic MQTT publish failed")
+
 
 # ---------------------------------------------------------------------------
-# Lifespan: DB init + seed
+# Lifespan: DB init + seed + optional MQTT discovery
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,7 +60,22 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
+    # Optional MQTT Discovery publisher (no-op unless MQTT_HOST is configured)
+    publisher = MqttPublisher()
+    mqtt_task = None
+    if publisher.enabled and publisher.connect():
+        mqtt_task = asyncio.create_task(_mqtt_publish_loop(publisher))
+    app.state.mqtt_publisher = publisher
+
     yield
+
+    if mqtt_task:
+        mqtt_task.cancel()
+        try:
+            await mqtt_task
+        except asyncio.CancelledError:
+            pass
+    publisher.disconnect()
 
 
 # ---------------------------------------------------------------------------
@@ -80,8 +112,22 @@ app.include_router(forecast.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------
-# Health check
+# Health check (used by the add-on / container healthcheck)
 # ---------------------------------------------------------------------------
-@app.get("/", tags=["health"])
-def root():
-    return {"message": "HA-Budgeting API is running", "version": "1.0.0"}
+@app.get("/health", tags=["health"])
+def health():
+    return {"status": "ok", "version": "1.0.0"}
+
+
+# ---------------------------------------------------------------------------
+# Serve the built frontend (single-container / Home Assistant add-on).
+# Mounted last so it only catches paths not handled by the API or /docs.
+# In local dev there is no build, so this is skipped and the SPA runs on Vite.
+# ---------------------------------------------------------------------------
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+if _STATIC_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=_STATIC_DIR, html=True), name="frontend")
+else:
+    @app.get("/", tags=["health"])
+    def root():
+        return {"message": "MEMO Finance Tracker API (dev mode)", "version": "1.0.0"}

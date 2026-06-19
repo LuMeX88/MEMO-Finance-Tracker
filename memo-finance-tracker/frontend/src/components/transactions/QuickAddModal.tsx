@@ -11,7 +11,7 @@ export default function QuickAddModal() {
   const closeQuickAdd = useUIStore((s) => s.closeQuickAdd)
 
   return (
-    <Modal open={open} onClose={closeQuickAdd} title={t('transactions.new')}>
+    <Modal open={open} onClose={closeQuickAdd} title={t('transaction.new')}>
       <TransactionForm
         initialType={initialType}
         autoScan={autoScan}

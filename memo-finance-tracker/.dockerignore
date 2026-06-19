@@ -1,0 +1,14 @@
+# Keep the Docker build context small and architecture-clean.
+# Host node_modules are the wrong architecture and must never be copied;
+# the image runs `npm ci` itself.
+frontend/node_modules
+frontend/dist
+backend/__pycache__
+backend/**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.db
+**/*.sqlite3
+backend/.env
+frontend/.env.local
+.git

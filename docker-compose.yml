@@ -3,7 +3,7 @@ version: '3.9'
 services:
   backend:
     build:
-      context: ./backend
+      context: ./memo-finance-tracker/backend
       dockerfile: Dockerfile
     container_name: ha-budgeting-backend
     ports:
@@ -21,7 +21,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: ./memo-finance-tracker/frontend
       dockerfile: Dockerfile
     container_name: ha-budgeting-frontend
     ports:

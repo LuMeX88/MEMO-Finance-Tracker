@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { HashRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AppLayout from '@/components/layout/AppLayout'
 import Dashboard from '@/pages/Dashboard'
@@ -40,7 +40,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             <Route element={<AppLayout />}>
               <Route index element={<Dashboard />} />
@@ -53,7 +53,7 @@ export default function App() {
             </Route>
           </Routes>
           <ToastContainer />
-        </BrowserRouter>
+        </HashRouter>
       </ThemeProvider>
     </QueryClientProvider>
   )

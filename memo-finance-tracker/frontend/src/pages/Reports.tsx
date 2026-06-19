@@ -467,7 +467,7 @@ export default function Reports() {
                   dataKey="total"
                   name="Geplant"
                   radius={[3, 3, 0, 0]}
-                  shape={(props: Record<string, unknown>) => {
+                  shape={(props: unknown) => {
                     const { x, y, width, height, total: _t, ...rest } = props as {
                       x: number; y: number; width: number; height: number; total: unknown
                       payload?: { is_past?: boolean }; [key: string]: unknown
