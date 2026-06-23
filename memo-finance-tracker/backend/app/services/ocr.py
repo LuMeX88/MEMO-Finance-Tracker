@@ -1,6 +1,13 @@
-"""OCR service – extracts transaction fields from receipt images using Tesseract."""
+"""OCR service – extracts transaction fields from receipt images using Tesseract.
+
+The preprocessing pipeline uses OpenCV when available (grayscale → upscale →
+denoise → deskew → adaptive threshold) for markedly better recognition, and
+falls back to a lightweight PIL pipeline in minimal environments. All processing
+is 100% local; no external OCR services are contacted.
+"""
 import asyncio
 import io
+import os
 import re
 import shutil
 from datetime import date
@@ -13,7 +20,6 @@ try:
     _TESSERACT_BIN = shutil.which("tesseract")
     if _TESSERACT_BIN is None:
         # Try common Windows install location
-        import os
         _WIN_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
         if os.path.exists(_WIN_PATH):
             pytesseract.pytesseract.tesseract_cmd = _WIN_PATH
@@ -21,6 +27,20 @@ try:
     OCR_AVAILABLE = _TESSERACT_BIN is not None
 except ImportError:
     OCR_AVAILABLE = False
+
+# OpenCV is optional. When present we use a far stronger preprocessing pipeline;
+# otherwise we fall back to PIL so the service still works in minimal dev setups.
+try:
+    import cv2
+    import numpy as np
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
+
+# Best OCR engine (--oem 3) + assume a single uniform block of text (--psm 6),
+# which suits receipts well.
+TESSERACT_CONFIG = "--oem 3 --psm 6"
+MIN_LONG_EDGE = 1500
 
 # Keyword → category name mapping for auto-detect
 MERCHANT_CATEGORY_MAP = {
@@ -36,27 +56,83 @@ MERCHANT_CATEGORY_MAP = {
 }
 
 
-def preprocess_image(image_bytes: bytes) -> "Image.Image":
-    """Preprocess image for better OCR quality."""
+def _deskew_cv2(gray: "np.ndarray") -> "np.ndarray":
+    """Straighten a slightly rotated image using the dominant text angle."""
+    inverted = cv2.bitwise_not(gray)
+    thresh = cv2.threshold(inverted, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    coords = cv2.findNonZero(thresh)
+    if coords is None:
+        return gray
+    angle = cv2.minAreaRect(coords)[-1]
+    # OpenCV's angle range is version-dependent; normalize to (-45, 45].
+    angle = ((angle + 45) % 90) - 45
+    # Skip negligible skew and implausibly large corrections (likely misdetected).
+    if abs(angle) < 0.5 or abs(angle) > 15:
+        return gray
+    h, w = gray.shape[:2]
+    matrix = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
+    return cv2.warpAffine(
+        gray, matrix, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
+    )
+
+
+def _preprocess_cv2(image_bytes: bytes) -> "np.ndarray":
+    """Strong OpenCV preprocessing pipeline for receipt photos."""
+    arr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None:
+        raise ValueError("Could not decode image")
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Upscale small images so Tesseract sees ~300dpi-equivalent glyphs.
+    h, w = gray.shape[:2]
+    long_edge = max(h, w)
+    if long_edge < MIN_LONG_EDGE:
+        scale = MIN_LONG_EDGE / float(long_edge)
+        gray = cv2.resize(
+            gray, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_CUBIC
+        )
+
+    # Remove speckle noise while keeping edges crisp.
+    gray = cv2.medianBlur(gray, 3)
+
+    # Correct small rotations before thresholding.
+    gray = _deskew_cv2(gray)
+
+    # Adaptive (local) thresholding copes with uneven lighting far better than a
+    # single global cutoff.
+    return cv2.adaptiveThreshold(
+        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 15
+    )
+
+
+def _preprocess_pil(image_bytes: bytes) -> "Image.Image":
+    """Lightweight PIL fallback when OpenCV is unavailable."""
     img = Image.open(io.BytesIO(image_bytes)).convert("L")  # grayscale
-    # Enhance contrast
     img = ImageEnhance.Contrast(img).enhance(2.0)
-    # Sharpen
     img = img.filter(ImageFilter.SHARPEN)
-    # Resize if too small (Tesseract works best at ~300dpi equivalent)
     w, h = img.size
-    if w < 800:
-        scale = 800 / w
+    long_edge = max(w, h)
+    if long_edge < MIN_LONG_EDGE:
+        scale = MIN_LONG_EDGE / float(long_edge)
         img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
     return img
 
 
+def preprocess_image(image_bytes: bytes):
+    """Return a preprocessed image ready for Tesseract (numpy array or PIL image)."""
+    if CV2_AVAILABLE:
+        return _preprocess_cv2(image_bytes)
+    return _preprocess_pil(image_bytes)
+
+
 def extract_amount(text: str) -> Optional[float]:
     """Find the largest monetary amount in OCR text."""
-    # Match: CHF 47.30, Total 12,50, 1'234.56, etc.
+    # Match: CHF 47.30, Total 12,50, 1'234.56, Summe 12.50, etc.
     patterns = [
-        r"(?:CHF|EUR|USD|Fr\.?)\s*(\d{1,4}[.,\']\d{2})",
-        r"(?:total|gesamt|betrag|zahlung|summe)[:\s]+(\d{1,4}[.,\']\d{2})",
+        r"(?:CHF|EUR|USD|Fr\.?|€|\$)\s*(\d{1,4}[.,\']\d{2})",
+        r"(?:total|gesamt|betrag|zahlung|summe|sum|amount)[:\s]+(\d{1,4}[.,\']\d{2})",
         r"\b(\d{1,4}[.,]\d{2})\b",
     ]
     amounts = []
@@ -132,12 +208,15 @@ def _parse_receipt_sync(image_bytes: bytes) -> dict:
             "merchant": None,
             "category_name": None,
             "raw_text": "",
+            "amount_found": False,
+            "date_found": False,
+            "recipient_found": False,
         }
 
     try:
         img = preprocess_image(image_bytes)
         lang = _get_ocr_lang()
-        raw_text = pytesseract.image_to_string(img, lang=lang)
+        raw_text = pytesseract.image_to_string(img, lang=lang, config=TESSERACT_CONFIG)
     except Exception as e:
         return {
             "ocr_available": False,
@@ -147,16 +226,25 @@ def _parse_receipt_sync(image_bytes: bytes) -> dict:
             "merchant": None,
             "category_name": None,
             "raw_text": "",
+            "amount_found": False,
+            "date_found": False,
+            "recipient_found": False,
         }
 
+    amount = extract_amount(raw_text)
+    parsed_date = extract_date(raw_text)
     merchant = extract_merchant(raw_text)
+
     return {
         "ocr_available": True,
-        "amount": extract_amount(raw_text),
-        "date": extract_date(raw_text).isoformat() if extract_date(raw_text) else None,
+        "amount": amount,
+        "date": parsed_date.isoformat() if parsed_date else None,
         "merchant": merchant,
         "category_name": guess_category(merchant),
-        "raw_text": raw_text[:500],
+        "raw_text": raw_text[:2000],
+        "amount_found": amount is not None,
+        "date_found": parsed_date is not None,
+        "recipient_found": bool(merchant),
     }
 
 

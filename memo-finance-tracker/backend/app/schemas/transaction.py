@@ -19,7 +19,9 @@ class TransactionBase(BaseModel):
 
 
 class TransactionCreate(TransactionBase):
-    pass
+    # Optional on create: when omitted, the backend auto-assigns a category via
+    # the local AI model (falling back to a default category if AI is off).
+    category_id: Optional[int] = None
 
 
 class TransactionUpdate(BaseModel):

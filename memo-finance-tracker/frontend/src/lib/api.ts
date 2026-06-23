@@ -10,6 +10,8 @@ import type {
   ScheduleSuggestion,
   TimelineEntry,
   Transaction,
+  VersionInfo,
+  AiStatus,
 } from '@/types'
 
 // Resolve the API base URL so it works in every deployment scenario:
@@ -282,4 +284,24 @@ export async function getForecast(months?: number): Promise<ForecastResponse> {
   const res = await fetch(`${BASE_URL}/forecast${params}`)
   if (!res.ok) throw new Error(await res.text())
   return res.json() as Promise<ForecastResponse>
+}
+
+// ── Version ─────────────────────────────────────────────────────────
+
+export function getVersion(): Promise<VersionInfo> {
+  return request<VersionInfo>('/version')
+}
+
+// ── AI ────────────────────────────────────────────────────────────────
+
+export function getAiStatus(): Promise<AiStatus> {
+  return request<AiStatus>('/ai/status')
+}
+
+export async function getAiInsight(currency: string): Promise<string> {
+  const res = await request<{ insight: string }>(
+    `/ai/insight${toQueryString({ currency })}`,
+    { method: 'POST' },
+  )
+  return res.insight
 }

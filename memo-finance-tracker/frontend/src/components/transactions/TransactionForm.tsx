@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronUp, Camera, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Camera, Loader2, Image as ImageIcon } from 'lucide-react'
 import { useT } from '@/lib/i18n'
 import {
   getCategories,
@@ -73,11 +73,12 @@ export default function TransactionForm({
   const [ocrBanner, setOcrBanner] = useState<'success' | 'unavailable' | 'error' | null>(null)
   const [ocrError, setOcrError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
 
-  // Auto-trigger camera when opened via "Beleg scannen" SpeedDial action
+  // Auto-trigger the camera when opened via the "Beleg scannen" SpeedDial action
   useEffect(() => {
     if (autoScan) {
-      const timer = setTimeout(() => fileInputRef.current?.click(), 150)
+      const timer = setTimeout(() => cameraInputRef.current?.click(), 150)
       return () => clearTimeout(timer)
     }
   }, [autoScan])
@@ -107,6 +108,15 @@ export default function TransactionForm({
       if (result.merchant) {
         setRecipient(result.merchant)
         detected.add('recipient')
+      }
+      if (result.category_name) {
+        const match = categories.find(
+          (c) => c.name.toLowerCase() === result.category_name!.toLowerCase(),
+        )
+        if (match) {
+          setCategoryId(String(match.id))
+          detected.add('category_id')
+        }
       }
       setOcrFields(detected)
       setOcrBanner('success')
@@ -182,24 +192,41 @@ export default function TransactionForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-      {/* Receipt scan */}
+      {/* Receipt scan — separate camera + file inputs so both work reliably,
+          including inside the Home Assistant Companion app. */}
       <input
-        ref={fileInputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
         className="hidden"
         onChange={handleFileSelected}
       />
-      <div className="flex items-center justify-end">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+      <div className="flex items-center justify-end gap-4">
+        <button
+          type="button"
+          disabled={scanning}
+          onClick={() => cameraInputRef.current?.click()}
+          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors disabled:opacity-50"
+        >
+          {scanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+          {t('action.takePhoto')}
+        </button>
         <button
           type="button"
           disabled={scanning}
           onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors disabled:opacity-50"
         >
-          {scanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-          Beleg scannen
+          <ImageIcon size={14} />
+          {t('action.chooseFile')}
         </button>
       </div>
 

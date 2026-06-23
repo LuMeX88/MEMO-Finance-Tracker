@@ -9,7 +9,8 @@ import {
   getReportSummary, getReportByCategory, getReportTimeline, getReportComparison,
   getForecast,
 } from '@/lib/api'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { exportReportCsv, exportReportPdf, type ReportExportData } from '@/lib/export'
 import { useUIStore } from '@/store/useUIStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
 import Button from '@/components/ui/Button'
@@ -148,6 +149,45 @@ export default function Reports() {
     color: c.category.color || CHART_COLORS[i % CHART_COLORS.length],
     percentage: c.percentage,
   }))
+
+  const buildExportData = (): ReportExportData => ({
+    summary,
+    byCategory,
+    timeline,
+    startDate: params.start_date,
+    endDate: params.end_date,
+    periodLabel: `${PRESET_LABELS[preset]} (${formatDate(params.start_date)} – ${formatDate(params.end_date)})`,
+    currency,
+    t,
+  })
+
+  const hasExportData = Boolean(summary) || byCategory.length > 0 || timeline.length > 0
+
+  const handleExportCsv = () => {
+    if (!hasExportData) {
+      addToast(t('reports.exportNoData'), 'error')
+      return
+    }
+    try {
+      exportReportCsv(buildExportData())
+      addToast(t('reports.exportSuccess'), 'success')
+    } catch {
+      addToast(t('reports.exportError'), 'error')
+    }
+  }
+
+  const handleExportPdf = async () => {
+    if (!hasExportData) {
+      addToast(t('reports.exportNoData'), 'error')
+      return
+    }
+    try {
+      await exportReportPdf(buildExportData())
+      addToast(t('reports.exportSuccess'), 'success')
+    } catch {
+      addToast(t('reports.exportError'), 'error')
+    }
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
@@ -397,14 +437,14 @@ export default function Reports() {
         <div className="flex flex-wrap gap-3">
           <Button
             variant="secondary"
-            onClick={() => addToast(t('reports.exportPreparing'), 'info')}
+            onClick={handleExportCsv}
           >
             <FileText size={15} />
             {t('reports.exportCsv')}
           </Button>
           <Button
             variant="secondary"
-            onClick={() => addToast(t('reports.exportPreparing'), 'info')}
+            onClick={handleExportPdf}
           >
             <Download size={15} />
             {t('reports.exportPdf')}

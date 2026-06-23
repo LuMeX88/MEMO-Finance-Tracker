@@ -1,0 +1,9 @@
+build_from:
+  aarch64: ghcr.io/home-assistant/aarch64-base-debian:bookworm
+  amd64: ghcr.io/home-assistant/amd64-base-debian:bookworm
+args:
+  # Stamped into the image at build time so the app can report its version and
+  # build date fully offline (see backend/app/version.py). The Supervisor sets
+  # BUILD_VERSION automatically from config.yaml; BUILD_DATE is filled by CI/the
+  # release workflow (falls back to "unknown" for local builds).
+  BUILD_DATE: unknown

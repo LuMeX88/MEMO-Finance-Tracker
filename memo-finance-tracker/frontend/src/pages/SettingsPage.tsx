@@ -11,6 +11,7 @@ import {
   createProject,
   createTransaction,
   createSchedule,
+  getVersion,
 } from '@/lib/api'
 import { useSettingsStore } from '@/store/useSettingsStore'
 import { useUIStore } from '@/store/useUIStore'
@@ -83,6 +84,12 @@ export default function SettingsPage() {
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
+  })
+
+  const { data: versionInfo } = useQuery({
+    queryKey: ['version'],
+    queryFn: getVersion,
+    staleTime: Infinity,
   })
 
   function handleThemeToggle() {
@@ -343,20 +350,31 @@ export default function SettingsPage() {
         <SectionHeader title={t('settings.info')} />
 
         <SettingRow label={t('settings.version')}>
-          <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">0.1.0</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+            {versionInfo?.version ?? '…'}
+          </span>
         </SettingRow>
 
-        <SettingRow label="HA-Budgeting" description={t('settings.description')}>
+        <SettingRow label={t('settings.buildDate')}>
+          <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+            {versionInfo?.build_date ?? '…'}
+          </span>
+        </SettingRow>
+
+        <SettingRow label="MEMO – Finance Tracker" description={t('settings.description')}>
           <span />
         </SettingRow>
 
         <SettingRow label={t('settings.docs')}>
-          <button
-            onClick={() => addToast(t('settings.docs'), 'info')}
+          <a
+            href="https://github.com/LuMeX88/MEMO-Finance-Tracker/blob/main/memo-finance-tracker/DOCS.md"
+            target="_blank"
+            rel="noreferrer"
             className="flex items-center gap-1.5 text-sm text-primary-600 dark:text-primary-400 hover:underline"
           >
             <ExternalLink size={13} />
-          </button>
+            Docs
+          </a>
         </SettingRow>
       </div>
 

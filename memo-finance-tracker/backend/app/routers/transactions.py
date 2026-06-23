@@ -5,8 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.category import Category
 from app.models.transaction import Transaction, TransactionType
 from app.schemas.transaction import TransactionCreate, TransactionResponse, TransactionUpdate
+from app.services.ai import ai_service
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -33,11 +35,37 @@ def list_transactions(
 
 @router.post("/", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 def create_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
-    db_transaction = Transaction(**transaction.model_dump())
+    data = transaction.model_dump()
+    if data.get("category_id") is None:
+        data["category_id"] = _resolve_category(db, data.get("recipient", ""), data.get("note"))
+    db_transaction = Transaction(**data)
     db.add(db_transaction)
     db.commit()
     db.refresh(db_transaction)
     return db_transaction
+
+
+def _resolve_category(db: Session, recipient: str, note: Optional[str]) -> int:
+    """Pick a category id for a transaction that has none.
+
+    Tries the local AI classifier over the active categories; on any miss falls
+    back to a sensible default ("Other" if present, else the first category).
+    Guarantees a valid id because the column is NOT NULL.
+    """
+    categories = db.query(Category).filter(Category.archived.is_(False)).all()
+    if not categories:
+        categories = db.query(Category).all()
+    if not categories:
+        raise HTTPException(status_code=400, detail="No categories available")
+
+    by_name = {c.name: c for c in categories}
+    description = " ".join(filter(None, [recipient, note or ""])).strip()
+    suggestion = ai_service.categorize(description, list(by_name.keys())) if description else None
+    if suggestion and suggestion in by_name:
+        return by_name[suggestion].id
+
+    default = by_name.get("Other") or categories[0]
+    return default.id
 
 
 @router.get("/{transaction_id}", response_model=TransactionResponse)

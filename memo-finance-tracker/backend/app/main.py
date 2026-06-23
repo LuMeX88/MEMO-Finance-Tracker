@@ -10,11 +10,14 @@ from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, SessionLocal, engine
 from app.services.mqtt_publisher import MqttPublisher
+from app.services.ai import ai_service
+from app.version import get_version
 
 # Import all models so SQLAlchemy registers them before create_all
 from app.models import Category, IntervalType, Project, Schedule, ScheduleSuggestion, SuggestionStatus, Transaction, TransactionType  # noqa: F401
 
 from app.routers import categories, forecast, projects, receipts, reports, schedules, suggestions, transactions
+from app.routers import ai
 
 # ---------------------------------------------------------------------------
 # Default categories seeded on first startup
@@ -68,6 +71,10 @@ async def lifespan(app: FastAPI):
         mqtt_task = asyncio.create_task(_mqtt_publish_loop(publisher))
     app.state.mqtt_publisher = publisher
 
+    # Kick off the local AI model download + load in the background so it never
+    # blocks startup or the health check (no-op when AI is disabled).
+    ai_service.start_background_init()
+
     yield
 
     if mqtt_task:
@@ -83,9 +90,9 @@ async def lifespan(app: FastAPI):
 # App
 # ---------------------------------------------------------------------------
 app = FastAPI(
-    title="HA-Budgeting API",
+    title="MEMO – Finance Tracker API",
     description="Personal Expenses Management – REST API",
-    version="1.0.0",
+    version=get_version()["version"],
     lifespan=lifespan,
 )
 
@@ -110,6 +117,7 @@ app.include_router(reports.router, prefix=API_PREFIX)
 app.include_router(receipts.router, prefix=API_PREFIX)
 app.include_router(suggestions.router, prefix=API_PREFIX)
 app.include_router(forecast.router, prefix=API_PREFIX)
+app.include_router(ai.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +125,15 @@ app.include_router(forecast.router, prefix=API_PREFIX)
 # ---------------------------------------------------------------------------
 @app.get("/health", tags=["health"])
 def health():
-    return {"status": "ok", "version": "1.0.0"}
+    return {"status": "ok", **get_version()}
+
+
+# ---------------------------------------------------------------------------
+# Version info (consumed by the Settings page — fully offline)
+# ---------------------------------------------------------------------------
+@app.get(f"{API_PREFIX}/version", tags=["version"])
+def version():
+    return get_version()
 
 
 # ---------------------------------------------------------------------------
@@ -152,4 +168,4 @@ if _STATIC_DIR.is_dir():
 else:
     @app.get("/", tags=["health"])
     def root():
-        return {"message": "MEMO Finance Tracker API (dev mode)", "version": "1.0.0"}
+        return {"message": "MEMO Finance Tracker API (dev mode)", **get_version()}

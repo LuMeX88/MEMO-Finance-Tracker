@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { TrendingDown, TrendingUp, Minus, BarChart2 } from 'lucide-react'
+import { TrendingDown, TrendingUp, Minus, BarChart2, Sparkles, Loader2 } from 'lucide-react'
 import { useT } from '@/lib/i18n'
 import { format, subDays, parseISO } from 'date-fns'
 import {
@@ -18,6 +18,8 @@ import {
   getReportByCategory,
   getReportTimeline,
   deleteTransaction,
+  getAiStatus,
+  getAiInsight,
 } from '@/lib/api'
 import { useUIStore } from '@/store/useUIStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
@@ -107,6 +109,78 @@ function ChartTooltip({
           {p.name}: {currency} {p.value.toFixed(2)}
         </p>
       ))}
+    </div>
+  )
+}
+
+// ── AI Insight Card ───────────────────────────────────────────────────────────
+
+function AiInsightCard({ currency }: { currency: string }) {
+  const t = useT()
+  const [insight, setInsight] = useState<string | null>(null)
+
+  const { data: status } = useQuery({
+    queryKey: ['ai-status'],
+    queryFn: getAiStatus,
+    // Poll only while the model is still downloading/loading, then stop.
+    refetchInterval: (query) => {
+      const state = query.state.data?.state
+      return state === 'downloading' || state === 'loading' ? 5000 : false
+    },
+  })
+
+  const mutation = useMutation({
+    mutationFn: () => getAiInsight(currency),
+    onSuccess: setInsight,
+  })
+
+  // Hidden entirely when AI is disabled or failed — graceful degradation.
+  if (!status || !status.enabled || status.state === 'error') return null
+
+  const busy = status.state === 'downloading' || status.state === 'loading'
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-100">
+          <Sparkles size={15} className="text-primary-500" />
+          {t('ai.insightTitle')}
+        </h2>
+        {status.ready && (
+          <button
+            type="button"
+            disabled={mutation.isPending}
+            onClick={() => mutation.mutate()}
+            className="flex items-center gap-1.5 text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline disabled:opacity-50"
+          >
+            {mutation.isPending ? (
+              <>
+                <Loader2 size={13} className="animate-spin" />
+                {t('ai.generating')}
+              </>
+            ) : (
+              t('ai.generate')
+            )}
+          </button>
+        )}
+      </div>
+
+      {busy && (
+        <p className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <Loader2 size={13} className="animate-spin" />
+          {t('ai.downloading')}
+        </p>
+      )}
+
+      {mutation.isError && (
+        <p className="text-xs text-red-500">{t('ai.error')}</p>
+      )}
+
+      {insight && !mutation.isPending && (
+        <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-200 whitespace-pre-line">
+          {insight}
+        </p>
+      )}
     </div>
   )
 }
@@ -260,6 +334,9 @@ export default function Dashboard() {
 
       {/* ── Suggestion Banner ──────────────────────────────────────────────── */}
       <SuggestionBanner />
+
+      {/* ── AI Insight ─────────────────────────────────────────────────────── */}
+      <AiInsightCard currency={currency} />
 
       {/* ── Trend Chart ────────────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">

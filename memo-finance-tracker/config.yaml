@@ -12,12 +12,13 @@ boot: auto
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:cash-multiple
-panel_title: MEMO
+panel_title: "MEMO – Finance Tracker"
 services:
   - mqtt:want
 map:
   - data:rw
 options:
+  ai_enabled: true
   mqtt_host: "core-mosquitto"
   mqtt_port: 1883
   mqtt_base_topic: "memo"
@@ -25,6 +26,7 @@ options:
   mqtt_currency: "€"
   mqtt_publish_interval: 300
 schema:
+  ai_enabled: bool
   mqtt_host: str
   mqtt_port: port
   mqtt_username: "str?"

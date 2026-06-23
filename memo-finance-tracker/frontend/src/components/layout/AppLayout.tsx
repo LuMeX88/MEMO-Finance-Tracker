@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { useT } from '@/lib/i18n'
 import SpeedDial from '@/components/ui/SpeedDial'
 import QuickAddModal from '@/components/transactions/QuickAddModal'
+import logoUrl from '@/assets/logo.png'
 
 export default function AppLayout() {
   const t = useT()
@@ -24,7 +25,7 @@ export default function AppLayout() {
       {/* Sidebar – desktop only */}
       <aside className="hidden md:flex md:flex-col md:w-56 md:shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-center px-5 py-5 border-b border-gray-200 dark:border-gray-700">
-          <img src="/logo.png" alt="HA Budgeting" className="h-48 w-48 object-contain rounded-xl" />
+          <img src={logoUrl} alt="MEMO – Finance Tracker" className="h-48 w-48 object-contain rounded-xl" />
         </div>
         <nav className="flex flex-col gap-1 p-3 flex-1">
           {navItems.map(({ to, label, icon: Icon, end }) => (
@@ -52,7 +53,7 @@ export default function AppLayout() {
       <div className="flex flex-col flex-1 min-w-0">
         {/* Mobile top bar */}
         <header className="md:hidden flex items-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shrink-0">
-          <img src="/logo.png" alt="HA Budgeting" className="h-28 w-28 object-contain rounded-xl" />
+          <img src={logoUrl} alt="MEMO – Finance Tracker" className="h-28 w-28 object-contain rounded-xl" />
         </header>
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
           <Outlet />

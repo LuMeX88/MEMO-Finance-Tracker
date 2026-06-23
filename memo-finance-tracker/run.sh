@@ -5,6 +5,15 @@ set -e
 # Persistent SQLite database lives on the add-on /data volume
 export DATABASE_URL="sqlite:////data/memo.db"
 
+# --- Local AI (embedded llama.cpp) ---
+# When disabled the model is never downloaded and all AI endpoints degrade
+# gracefully (see backend/app/services/ai.py).
+if bashio::config.true 'ai_enabled'; then
+  export AI_ENABLED="true"
+else
+  export AI_ENABLED="false"
+fi
+
 # --- MQTT configuration from the add-on options ---
 export MQTT_HOST="$(bashio::config 'mqtt_host')"
 export MQTT_PORT="$(bashio::config 'mqtt_port')"
@@ -28,7 +37,7 @@ if bashio::config.has_value 'mqtt_password'; then
   export MQTT_PASSWORD="$(bashio::config 'mqtt_password')"
 fi
 
-bashio::log.info "Starting MEMO – Finance Tracker (MQTT host: ${MQTT_HOST}:${MQTT_PORT})"
+bashio::log.info "Starting MEMO – Finance Tracker (MQTT host: ${MQTT_HOST}:${MQTT_PORT}, AI: ${AI_ENABLED})"
 
 cd /app
 exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8099

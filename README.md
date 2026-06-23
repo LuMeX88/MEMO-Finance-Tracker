@@ -34,9 +34,10 @@ Most finance apps live in the cloud, share your data, and cost a monthly fee. ME
 - **Transactions** – Log income and expenses with category, recipient, payment method and optional notes
 - **Schedules** – Manage recurring costs (rent, subscriptions, utilities) with fixed or variable amounts
 - **Forecasting** – Automatic monthly, 3-month and yearly expense forecast based on schedules and spending averages
-- **Reports** – Total income, total expenses, monthly averages, biggest transactions and period comparisons
+- **Reports & Export** – Total income, total expenses, monthly averages, biggest transactions, period comparisons and one-click **CSV / PDF export** (generated locally)
 - **Categories & Projects** – Fully customizable categories with icons and colors, project budgets with progress tracking
-- **OCR Receipt Scanning** – Photograph receipts directly in the app. Tesseract OCR runs locally and auto-fills amount, date and recipient as a suggestion
+- **Receipt Scanning (OCR)** – Capture a receipt with your **camera** or pick an existing **image file**. Tesseract OCR with OpenCV pre-processing runs locally and auto-fills amount, date and recipient as a suggestion
+- **Embedded Local AI** *(optional)* – A tiny local language model (Qwen2.5-0.5B, ~400 MB) runs **inside the add-on** – no Ollama, no cloud. It auto-categorizes new transactions, cleans up noisy OCR results and writes a short monthly spending insight. Can be switched off in the configuration
 - **Smart Schedule Suggestions** – The app detects recurring patterns in your transactions and suggests turning them into schedules automatically
 - **MQTT Sensor Entities** – Key metrics published to Home Assistant via MQTT Discovery (see below)
 - **Home Assistant Ingress** – Open MEMO straight from the HA sidebar; authentication handled by Home Assistant
@@ -66,6 +67,7 @@ The add-on exposes the following options:
 
 | Option | Default | Description |
 |---|---|---|
+| `ai_enabled` | `true` | Enable the embedded local AI (auto-categorization, OCR cleanup, monthly insight). Set to `false` to disable it and skip the one-time model download. |
 | `mqtt_host` | `core-mosquitto` | Hostname of your MQTT broker. Use `core-mosquitto` for the official Mosquitto add-on. |
 | `mqtt_port` | `1883` | MQTT broker port. |
 | `mqtt_username` | – | MQTT username (a Home Assistant / Mosquitto user). |
@@ -94,6 +96,22 @@ These can be used directly in dashboards, history graphs and automations (e.g. "
 
 ---
 
+## Local AI (optional, 100% on-device)
+
+MEMO ships with a small embedded language model so smart features work **without any cloud service or separate Ollama container**:
+
+- **Model:** Qwen2.5-0.5B-Instruct (GGUF, Q4_K_M, ~400 MB) running via `llama.cpp` on CPU.
+- **First start:** the model is downloaded once into the persistent `/data/models` volume. This is the **only** time MEMO touches the network for AI; all inference happens locally afterwards. The download runs in the background and never blocks the app.
+- **What it does:**
+  - **Auto-categorization** – when you add a transaction without picking a category, the model suggests the best-matching one (falling back to a default if unsure).
+  - **OCR cleanup** – when receipt scanning is unsure about a field, the model helps recover the amount, date or merchant from the raw text.
+  - **Monthly insight** – an "AI Insight" card on the dashboard summarizes the last 30 days in two or three sentences with one saving tip.
+- **Disable it:** set `ai_enabled: false` in the add-on configuration. Every AI feature then degrades gracefully and the rest of the app keeps working.
+
+> On low-power hardware (e.g. a Raspberry Pi) responses can take a few seconds. If you don't want the model at all, keep `ai_enabled` off.
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -101,7 +119,8 @@ These can be used directly in dashboards, history graphs and automations (e.g. "
 | Frontend | React + TypeScript + Vite + Tailwind CSS |
 | Backend | FastAPI (serves both the REST API and the built frontend) |
 | Database | SQLite (local, in `/data`) |
-| OCR | Tesseract via pytesseract + Pillow |
+| OCR | Tesseract via pytesseract + OpenCV pre-processing + Pillow |
+| Local AI | llama.cpp (`llama-cpp-python`) + Qwen2.5-0.5B-Instruct GGUF |
 | Pattern Matching | rapidfuzz |
 | HA Integration | MQTT Discovery (paho-mqtt) + Ingress |
 | Auth | Home Assistant (via Ingress) |

@@ -1,4 +1,5 @@
 """Receipt upload + OCR endpoint."""
+import asyncio
 import os
 import uuid
 from datetime import datetime
@@ -7,6 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
+from app.services.ai import ai_service
 from app.services.ocr import parse_receipt
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
@@ -30,6 +32,34 @@ async def scan_receipt(file: UploadFile = File(...)):
         raise HTTPException(400, f"File too large (max {MAX_SIZE_MB}MB)")
 
     result = await parse_receipt(image_bytes)
+
+    # AI cleanup fallback: only when OCR succeeded but the regex heuristics left
+    # gaps and the local model is ready. Fills missing fields without overriding
+    # confident regex matches. Skipped entirely when AI is disabled/unavailable.
+    result.setdefault("used_ai", False)
+    if result.get("ocr_available") and ai_service.ready and result.get("raw_text"):
+        low_confidence = not (
+            result.get("amount_found")
+            and result.get("date_found")
+            and result.get("recipient_found")
+        )
+        if low_confidence:
+            ai_fields = await asyncio.to_thread(
+                ai_service.extract_receipt_fields, result["raw_text"]
+            )
+            if result.get("amount") is None and ai_fields.get("amount") is not None:
+                result["amount"] = ai_fields["amount"]
+                result["amount_found"] = True
+                result["used_ai"] = True
+            if not result.get("date") and ai_fields.get("date"):
+                result["date"] = ai_fields["date"]
+                result["date_found"] = True
+                result["used_ai"] = True
+            if not result.get("merchant") and ai_fields.get("recipient"):
+                result["merchant"] = ai_fields["recipient"]
+                result["recipient_found"] = True
+                result["used_ai"] = True
+
     return result
 
 

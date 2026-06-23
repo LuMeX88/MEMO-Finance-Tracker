@@ -103,7 +103,19 @@ export interface OcrResult {
   merchant: string | null
   category_name: string | null
   raw_text: string
+  amount_found?: boolean
+  date_found?: boolean
+  recipient_found?: boolean
+  used_ai?: boolean
   error?: string
+}
+
+export interface AiStatus {
+  enabled: boolean
+  state: 'disabled' | 'downloading' | 'loading' | 'ready' | 'error'
+  ready: boolean
+  detail: string
+  model: string
 }
 
 export interface ScheduleSuggestion {
@@ -130,4 +142,9 @@ export interface MonthForecast {
 export interface ForecastResponse {
   months: MonthForecast[]
   variable_monthly_avg: number
+}
+
+export interface VersionInfo {
+  version: string
+  build_date: string
 }
