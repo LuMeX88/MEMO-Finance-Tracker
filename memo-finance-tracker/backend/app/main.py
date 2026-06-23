@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import logging.config
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -7,6 +8,43 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+
+# ---------------------------------------------------------------------------
+# Logging configuration
+# ---------------------------------------------------------------------------
+# Configured here in Python (not via `uvicorn --log-config <file>`) so a missing
+# or invalid file can never stop the add-on from starting. Run before importing
+# the app modules below so their import-time log lines are timestamped too.
+# uvicorn sets up its own logging *before* importing this module, so this call
+# overrides uvicorn's loggers with the same timestamped format.
+_LOG_FORMATTER = {
+    "format": "[%(asctime)s] %(levelname)s: %(message)s",
+    "datefmt": "%Y-%m-%d %H:%M:%S",
+}
+logging.config.dictConfig(
+    {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {"timestamped": _LOG_FORMATTER},
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "timestamped",
+                "stream": "ext://sys.stderr",
+            }
+        },
+        "loggers": {
+            # uvicorn's loggers (incl. access log) pass their fields through the
+            # message, so a plain timestamped formatter renders them correctly.
+            "uvicorn": {"level": "INFO", "handlers": ["console"], "propagate": False},
+            "uvicorn.error": {"level": "INFO", "handlers": ["console"], "propagate": False},
+            "uvicorn.access": {"level": "INFO", "handlers": ["console"], "propagate": False},
+            # Application loggers: memo, memo.ai, memo.ocr, ...
+            "memo": {"level": "INFO", "handlers": ["console"], "propagate": False},
+        },
+        "root": {"level": "INFO", "handlers": ["console"]},
+    }
+)
 
 from app.database import Base, SessionLocal, engine
 from app.services.mqtt_publisher import MqttPublisher

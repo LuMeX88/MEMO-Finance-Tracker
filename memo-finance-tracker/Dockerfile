@@ -63,9 +63,6 @@ RUN apt-get update \
 # Backend application code
 COPY backend/app ./app
 
-# Uvicorn logging config (adds timestamps to every log line)
-COPY backend/logging.yaml ./logging.yaml
-
 # Compiled frontend, served by FastAPI as static files at /app/static
 COPY --from=frontend /build/dist ./static
 

@@ -40,6 +40,7 @@ fi
 bashio::log.info "Starting MEMO – Finance Tracker (MQTT host: ${MQTT_HOST}:${MQTT_PORT}, AI: ${AI_ENABLED})"
 
 cd /app
-# --log-config adds timestamps to uvicorn + application log lines (see
-# logging.yaml). Without it uvicorn's output has no time prefix.
-exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8099 --log-config logging.yaml
+# Logging (including timestamps) is configured in Python at import time
+# (see app/main.py) instead of via `uvicorn --log-config <file>`, so a missing
+# or invalid log-config file can never stop the add-on from starting.
+exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8099
