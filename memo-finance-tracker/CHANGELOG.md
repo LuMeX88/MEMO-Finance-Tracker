@@ -1,7 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - 2026-06-23
 
+- **Settings → local AI toggle**: turn the embedded AI on or off at any time;
+  the choice is persisted and the model is loaded/unloaded accordingly.
+- **Settings → demo data**: one click loads a realistic ~3-month sample
+  dataset (transactions, projects, schedules) and one click removes it again
+  — only the demo entries are touched, never your own data.
+- **Settings → suggested categories**: add a set of best-practice budgeting
+  categories, or remove the unused ones again.
 - **Embedded local AI** (optional, `ai_enabled`): Qwen2.5-0.5B runs inside the
   add-on for transaction auto-categorization, OCR cleanup and a monthly
   dashboard insight. No cloud, no Ollama; disable with `ai_enabled: false`.
@@ -13,6 +20,9 @@
 - **Fix:** pin NumPy to the 1.26 line (and OpenCV to a matching build) so the
   add-on starts on older CPUs and on VMs with a generic CPU model, which
   previously crashed with `NumPy ... baseline optimizations (X86_V2)`.
+- **Fix:** configure logging in Python instead of a uvicorn `--log-config`
+  file, so a missing/invalid file can never stop the add-on from starting; all
+  log lines now carry timestamps.
 
 ## 1.0.0
 
