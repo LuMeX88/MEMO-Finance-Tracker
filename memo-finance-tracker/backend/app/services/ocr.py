@@ -7,6 +7,7 @@ is 100% local; no external OCR services are contacted.
 """
 import asyncio
 import io
+import logging
 import os
 import re
 import shutil
@@ -25,8 +26,15 @@ try:
             pytesseract.pytesseract.tesseract_cmd = _WIN_PATH
             _TESSERACT_BIN = _WIN_PATH
     OCR_AVAILABLE = _TESSERACT_BIN is not None
-except ImportError:
+except Exception as exc:  # noqa: BLE001 - importing pytesseract pulls in NumPy,
+    # which can raise RuntimeError (not ImportError) on CPUs/VMs that lack the
+    # CPU baseline its wheel was built for (e.g. "NumPy was built with baseline
+    # optimizations (X86_V2) but your machine doesn't support (X86_V2)"). We must
+    # never let that crash the whole app — OCR simply becomes unavailable.
     OCR_AVAILABLE = False
+    logging.getLogger("memo.ocr").warning(
+        "OCR disabled — could not import Tesseract/NumPy: %s", exc
+    )
 
 # OpenCV is optional. When present we use a far stronger preprocessing pipeline;
 # otherwise we fall back to PIL so the service still works in minimal dev setups.
@@ -34,7 +42,7 @@ try:
     import cv2
     import numpy as np
     CV2_AVAILABLE = True
-except ImportError:
+except Exception:  # noqa: BLE001 - same NumPy/CPU-baseline caveat as above
     CV2_AVAILABLE = False
 
 # Best OCR engine (--oem 3) + assume a single uniform block of text (--psm 6),

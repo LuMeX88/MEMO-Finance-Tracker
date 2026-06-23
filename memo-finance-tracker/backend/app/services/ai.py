@@ -115,8 +115,10 @@ class AIService:
         self._detail = "Loading model"
         try:
             from llama_cpp import Llama
-        except ImportError as exc:
-            raise RuntimeError("llama-cpp-python is not installed") from exc
+        except Exception as exc:  # noqa: BLE001 - import can fail with RuntimeError
+            # (e.g. NumPy CPU-baseline mismatch), not only ImportError. Any failure
+            # here is caught by _initialize() and just disables AI.
+            raise RuntimeError(f"llama-cpp-python unavailable: {exc}") from exc
 
         self._llm = Llama(
             model_path=str(self._model_path),

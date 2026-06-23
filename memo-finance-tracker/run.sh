@@ -40,4 +40,6 @@ fi
 bashio::log.info "Starting MEMO – Finance Tracker (MQTT host: ${MQTT_HOST}:${MQTT_PORT}, AI: ${AI_ENABLED})"
 
 cd /app
-exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8099
+# --log-config adds timestamps to uvicorn + application log lines (see
+# logging.yaml). Without it uvicorn's output has no time prefix.
+exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8099 --log-config logging.yaml
