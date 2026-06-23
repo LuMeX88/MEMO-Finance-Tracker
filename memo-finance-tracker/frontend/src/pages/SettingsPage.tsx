@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Moon, Sun, Download, Upload, Trash2, ExternalLink, AlertTriangle } from 'lucide-react'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import { Moon, Sun, Download, Upload, Trash2, ExternalLink, AlertTriangle, Database, Tags } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   getCategories,
@@ -12,6 +12,12 @@ import {
   createTransaction,
   createSchedule,
   getVersion,
+  getAiStatus,
+  setAiEnabled,
+  loadDemoData,
+  eraseDemoData,
+  addSuggestedCategories,
+  eraseSuggestedCategories,
 } from '@/lib/api'
 import { useSettingsStore } from '@/store/useSettingsStore'
 import { useUIStore } from '@/store/useUIStore'
@@ -52,6 +58,38 @@ function SettingRow({
 const selectClass =
   'h-9 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white px-3 focus:outline-none focus:ring-2 focus:ring-primary-500'
 
+function Toggle({
+  checked,
+  onChange,
+  disabled,
+  label,
+}: {
+  checked: boolean
+  onChange: (next: boolean) => void
+  disabled?: boolean
+  label: string
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative w-14 h-8 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
+        checked ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-600'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+    >
+      <span
+        className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow transition-transform ${
+          checked ? 'translate-x-6' : 'translate-x-0'
+        }`}
+      />
+    </button>
+  )
+}
+
 type RestoreData = {
   categories: Record<string, unknown>[]
   projects: Record<string, unknown>[]
@@ -79,6 +117,8 @@ export default function SettingsPage() {
   const [restoreLoading, setRestoreLoading] = useState(false)
   const [restoreConfirm, setRestoreConfirm] = useState(false)
   const [pendingRestoreData, setPendingRestoreData] = useState<RestoreData | null>(null)
+  const [demoEraseConfirm, setDemoEraseConfirm] = useState(false)
+  const [suggestedEraseConfirm, setSuggestedEraseConfirm] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: categories = [] } = useQuery({
@@ -91,6 +131,80 @@ export default function SettingsPage() {
     queryFn: getVersion,
     staleTime: Infinity,
   })
+
+  const { data: aiStatus } = useQuery({
+    queryKey: ['ai-status'],
+    queryFn: getAiStatus,
+    // Poll only while the model is still downloading/loading, then stop.
+    refetchInterval: (query) => {
+      const state = query.state.data?.state
+      return state === 'downloading' || state === 'loading' ? 3000 : false
+    },
+  })
+
+  const aiMutation = useMutation({
+    mutationFn: setAiEnabled,
+    onSuccess: (status) => {
+      queryClient.setQueryData(['ai-status'], status)
+      addToast(
+        status.enabled ? t('settings.aiEnabledToast') : t('settings.aiDisabledToast'),
+        'success',
+      )
+    },
+    onError: () => addToast(t('settings.actionError'), 'error'),
+  })
+
+  const demoLoadMutation = useMutation({
+    mutationFn: loadDemoData,
+    onSuccess: () => {
+      queryClient.invalidateQueries()
+      addToast(t('settings.demoLoaded'), 'success')
+    },
+    onError: () => addToast(t('settings.actionError'), 'error'),
+  })
+
+  const demoEraseMutation = useMutation({
+    mutationFn: eraseDemoData,
+    onSuccess: () => {
+      queryClient.invalidateQueries()
+      addToast(t('settings.demoErased'), 'success')
+    },
+    onError: () => addToast(t('settings.actionError'), 'error'),
+  })
+
+  const suggestedAddMutation = useMutation({
+    mutationFn: addSuggestedCategories,
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      addToast(t('settings.suggestedAdded', { n: res.created }), 'success')
+    },
+    onError: () => addToast(t('settings.actionError'), 'error'),
+  })
+
+  const suggestedEraseMutation = useMutation({
+    mutationFn: eraseSuggestedCategories,
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      addToast(t('settings.suggestedErased', { n: res.deleted }), 'success')
+    },
+    onError: () => addToast(t('settings.actionError'), 'error'),
+  })
+
+  function aiStateLabel(): string {
+    if (!aiStatus || !aiStatus.enabled) return t('settings.aiOff')
+    switch (aiStatus.state) {
+      case 'downloading':
+        return t('settings.aiDownloading')
+      case 'loading':
+        return t('settings.aiLoading')
+      case 'ready':
+        return t('settings.aiReady')
+      case 'error':
+        return t('settings.aiErrorState')
+      default:
+        return t('settings.aiOff')
+    }
+  }
 
   function handleThemeToggle() {
     const next = theme === 'dark' ? 'light' : 'dark'
@@ -271,6 +385,23 @@ export default function SettingsPage() {
         </SettingRow>
       </div>
 
+      {/* ── KI / AI (lokal) ───────────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 mb-4">
+        <SectionHeader title={t('settings.ai')} />
+
+        <SettingRow
+          label={t('settings.aiEnable')}
+          description={aiStatus?.enabled ? aiStateLabel() : t('settings.aiEnableDesc')}
+        >
+          <Toggle
+            checked={!!aiStatus?.enabled}
+            disabled={aiMutation.isPending}
+            label={t('settings.aiEnable')}
+            onChange={(next) => aiMutation.mutate(next)}
+          />
+        </SettingRow>
+      </div>
+
       {/* ── Backup & Restore ──────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 mb-4">
         <SectionHeader title={t('settings.backup')} />
@@ -341,6 +472,65 @@ export default function SettingsPage() {
           <Button variant="danger" size="sm" onClick={() => setDeleteConfirm(true)}>
             <Trash2 size={14} />
             {t('action.delete')}
+          </Button>
+        </SettingRow>
+      </div>
+
+      {/* ── Demo & Vorlagen ───────────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 mb-4">
+        <SectionHeader title={t('settings.demo')} />
+
+        <SettingRow label={t('settings.demoLoad')} description={t('settings.demoLoadDesc')}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => demoLoadMutation.mutate()}
+            loading={demoLoadMutation.isPending}
+            disabled={demoLoadMutation.isPending}
+          >
+            <Database size={14} />
+            {t('settings.demoLoad')}
+          </Button>
+        </SettingRow>
+
+        <SettingRow label={t('settings.demoErase')} description={t('settings.demoEraseDesc')}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setDemoEraseConfirm(true)}
+            loading={demoEraseMutation.isPending}
+            disabled={demoEraseMutation.isPending}
+          >
+            <Trash2 size={14} />
+            {t('settings.demoErase')}
+          </Button>
+        </SettingRow>
+
+        <SectionHeader title={t('settings.suggestedCats')} />
+
+        <SettingRow label={t('settings.suggestedAdd')} description={t('settings.suggestedAddDesc')}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => suggestedAddMutation.mutate()}
+            loading={suggestedAddMutation.isPending}
+            disabled={suggestedAddMutation.isPending}
+          >
+            <Tags size={14} />
+            {t('settings.suggestedAdd')}
+          </Button>
+        </SettingRow>
+
+        <SettingRow label={t('settings.suggestedErase')} description={t('settings.suggestedEraseDesc')}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setSuggestedEraseConfirm(true)}
+            loading={suggestedEraseMutation.isPending}
+            disabled={suggestedEraseMutation.isPending}
+          >
+            <Trash2 size={14} />
+            {t('settings.suggestedErase')}
           </Button>
         </SettingRow>
       </div>
@@ -445,6 +635,76 @@ export default function SettingsPage() {
             </Button>
             <Button variant="primary" onClick={handleRestoreConfirm}>
               {t('common.confirm')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Demo Erase Confirm Modal */}
+      <Modal
+        open={demoEraseConfirm}
+        onClose={() => setDemoEraseConfirm(false)}
+        title={t('settings.demoErase')}
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="text-amber-500 flex-shrink-0 mt-0.5" size={20} />
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                {t('settings.demoEraseConfirm')}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                {t('settings.demoEraseWarning')}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="secondary" onClick={() => setDemoEraseConfirm(false)}>
+              {t('action.cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setDemoEraseConfirm(false)
+                demoEraseMutation.mutate()
+              }}
+            >
+              {t('settings.demoErase')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Suggested Categories Erase Confirm Modal */}
+      <Modal
+        open={suggestedEraseConfirm}
+        onClose={() => setSuggestedEraseConfirm(false)}
+        title={t('settings.suggestedErase')}
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="text-amber-500 flex-shrink-0 mt-0.5" size={20} />
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                {t('settings.suggestedEraseConfirm')}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                {t('settings.suggestedEraseWarning')}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="secondary" onClick={() => setSuggestedEraseConfirm(false)}>
+              {t('action.cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setSuggestedEraseConfirm(false)
+                suggestedEraseMutation.mutate()
+              }}
+            >
+              {t('settings.suggestedErase')}
             </Button>
           </div>
         </div>

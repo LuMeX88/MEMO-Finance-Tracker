@@ -29,6 +29,11 @@ MODEL_URL = (
 MODEL_FILENAME = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
 MODEL_DIR = Path(os.getenv("AI_MODEL_DIR", "/data/models"))
 
+# Runtime on/off override toggled from the Settings page. Persisted to the
+# add-on /data volume so the choice survives restarts. When the file is absent
+# the AI_ENABLED env var (add-on configuration) is used as the default.
+OVERRIDE_FILE = Path(os.getenv("AI_STATE_FILE", str(MODEL_DIR.parent / "ai_enabled.flag")))
+
 # Lifecycle states surfaced via /api/v1/ai/status
 STATE_DISABLED = "disabled"
 STATE_DOWNLOADING = "downloading"
@@ -36,9 +41,27 @@ STATE_LOADING = "loading"
 STATE_READY = "ready"
 STATE_ERROR = "error"
 
+_TRUE_VALUES = {"1", "true", "yes", "on"}
+_FALSE_VALUES = {"0", "false", "no", "off"}
 
-def _ai_enabled() -> bool:
-    return os.getenv("AI_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+
+def _ai_enabled_default() -> bool:
+    """Default AI on/off from the add-on configuration (AI_ENABLED env var)."""
+    return os.getenv("AI_ENABLED", "true").strip().lower() in _TRUE_VALUES
+
+
+def _read_override() -> Optional[bool]:
+    """Persisted Settings-page override, or None when not set."""
+    try:
+        if OVERRIDE_FILE.exists():
+            value = OVERRIDE_FILE.read_text(encoding="utf-8").strip().lower()
+            if value in _TRUE_VALUES:
+                return True
+            if value in _FALSE_VALUES:
+                return False
+    except Exception:  # pragma: no cover - never let a bad file break startup
+        pass
+    return None
 
 
 class AIService:
@@ -46,7 +69,8 @@ class AIService:
 
     def __init__(self) -> None:
         self._llm = None
-        self._state = STATE_DISABLED if not _ai_enabled() else STATE_LOADING
+        self._enabled_override = _read_override()
+        self._state = STATE_DISABLED if not self._is_enabled() else STATE_LOADING
         self._detail = ""
         self._lock = threading.Lock()  # llama.cpp is not thread-safe
         self._init_started = False
@@ -54,12 +78,46 @@ class AIService:
 
     # ── Lifecycle ────────────────────────────────────────────────────────────
 
+    def _is_enabled(self) -> bool:
+        """Effective on/off: Settings override wins over the env-var default."""
+        if self._enabled_override is not None:
+            return self._enabled_override
+        return _ai_enabled_default()
+
+    def _persist_override(self, enabled: bool) -> None:
+        try:
+            OVERRIDE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            OVERRIDE_FILE.write_text("true" if enabled else "false", encoding="utf-8")
+        except Exception as exc:  # pragma: no cover - persistence is best-effort
+            logger.warning("[MEMO AI] Could not persist AI on/off choice: %s", exc)
+
+    def set_enabled(self, enabled: bool) -> dict:
+        """Turn the local AI on or off at runtime (from the Settings page)."""
+        self._enabled_override = enabled
+        self._persist_override(enabled)
+        if enabled:
+            # Allow (re)initialisation even if it was previously disabled/errored.
+            if self._state in (STATE_DISABLED, STATE_ERROR):
+                self._init_started = False
+                self._state = STATE_LOADING
+                self._detail = "Enabling…"
+            self.start_background_init()
+            logger.info("[MEMO AI] Enabled via settings.")
+        else:
+            with self._lock:
+                self._llm = None
+            self._state = STATE_DISABLED
+            self._detail = "AI disabled via settings"
+            self._init_started = False
+            logger.info("[MEMO AI] Disabled via settings.")
+        return self.status()
+
     def start_background_init(self) -> None:
         """Kick off model download + load in a daemon thread (idempotent)."""
         if self._init_started:
             return
         self._init_started = True
-        if not _ai_enabled():
+        if not self._is_enabled():
             self._state = STATE_DISABLED
             self._detail = "AI disabled via add-on configuration"
             logger.info("[MEMO AI] Disabled via configuration — skipping model load.")
@@ -138,7 +196,7 @@ class AIService:
 
     def status(self) -> dict:
         return {
-            "enabled": _ai_enabled(),
+            "enabled": self._is_enabled(),
             "state": self._state,
             "ready": self.ready,
             "detail": self._detail,

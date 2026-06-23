@@ -298,6 +298,43 @@ export function getAiStatus(): Promise<AiStatus> {
   return request<AiStatus>('/ai/status')
 }
 
+export function setAiEnabled(enabled: boolean): Promise<AiStatus> {
+  return request<AiStatus>('/ai/enabled', {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  })
+}
+
+// ── Demo data ─────────────────────────────────────────────────────────
+
+export type DemoResult = {
+  transactions: number
+  projects: number
+  schedules: number
+}
+
+export function loadDemoData(): Promise<DemoResult> {
+  return request<DemoResult>('/demo/load', { method: 'POST' })
+}
+
+export function eraseDemoData(): Promise<DemoResult> {
+  return request<DemoResult>('/demo/erase', { method: 'POST' })
+}
+
+// ── Suggested categories ──────────────────────────────────────────────
+
+export function addSuggestedCategories(): Promise<{ created: number; skipped: number }> {
+  return request<{ created: number; skipped: number }>('/categories/suggested', {
+    method: 'POST',
+  })
+}
+
+export function eraseSuggestedCategories(): Promise<{ deleted: number; skipped: number }> {
+  return request<{ deleted: number; skipped: number }>('/categories/suggested', {
+    method: 'DELETE',
+  })
+}
+
 export async function getAiInsight(currency: string): Promise<string> {
   const res = await request<{ insight: string }>(
     `/ai/insight${toQueryString({ currency })}`,

@@ -56,6 +56,7 @@ from app.models import Category, IntervalType, Project, Schedule, ScheduleSugges
 
 from app.routers import categories, forecast, projects, receipts, reports, schedules, suggestions, transactions
 from app.routers import ai
+from app.routers import demo
 
 # ---------------------------------------------------------------------------
 # Default categories seeded on first startup
@@ -156,6 +157,7 @@ app.include_router(receipts.router, prefix=API_PREFIX)
 app.include_router(suggestions.router, prefix=API_PREFIX)
 app.include_router(forecast.router, prefix=API_PREFIX)
 app.include_router(ai.router, prefix=API_PREFIX)
+app.include_router(demo.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------

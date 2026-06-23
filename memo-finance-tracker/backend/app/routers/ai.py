@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -14,10 +15,20 @@ from app.services.ai import ai_service
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 
+class AiEnabledRequest(BaseModel):
+    enabled: bool
+
+
 @router.get("/status")
 def ai_status():
     """Report whether the local AI model is enabled, downloading, or ready."""
     return ai_service.status()
+
+
+@router.post("/enabled")
+def set_ai_enabled(payload: AiEnabledRequest):
+    """Enable or disable the local AI at runtime (persisted across restarts)."""
+    return ai_service.set_enabled(payload.enabled)
 
 
 @router.post("/insight")
