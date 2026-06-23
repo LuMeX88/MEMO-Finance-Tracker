@@ -1,16 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Receipt, Filter } from 'lucide-react'
-import { format } from 'date-fns'
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfQuarter,
+  endOfQuarter,
+  startOfYear,
+  endOfYear,
+  addMonths,
+  addQuarters,
+  addYears,
+} from 'date-fns'
 import {
   getTransactions,
   getCategories,
+  getProjects,
   deleteTransaction,
 } from '@/lib/api'
 import { useUIStore } from '@/store/useUIStore'
 import Modal from '@/components/ui/Modal'
 import Select from '@/components/ui/Select'
+import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import EmptyState from '@/components/ui/EmptyState'
 import TransactionForm from '@/components/transactions/TransactionForm'
@@ -20,33 +33,39 @@ import { useT } from '@/lib/i18n'
 
 const PAGE_SIZE = 20
 
-function monthStart(date: Date): string {
-  return format(date, 'yyyy-MM-01')
+type Period = 'month' | 'quarter' | 'year' | 'custom'
+
+const fmt = (d: Date) => format(d, 'yyyy-MM-dd')
+
+function rangeFor(
+  period: Period,
+  anchorStr: string,
+  customStart: string,
+  customEnd: string,
+): { start: string; end: string } {
+  if (period === 'custom') return { start: customStart, end: customEnd }
+  const anchor = new Date(anchorStr)
+  if (period === 'month')
+    return { start: fmt(startOfMonth(anchor)), end: fmt(endOfMonth(anchor)) }
+  if (period === 'quarter')
+    return { start: fmt(startOfQuarter(anchor)), end: fmt(endOfQuarter(anchor)) }
+  return { start: fmt(startOfYear(anchor)), end: fmt(endOfYear(anchor)) }
 }
 
-function monthEnd(date: Date): string {
-  const y = date.getFullYear()
-  const m = date.getMonth() + 1
-  const last = new Date(y, m, 0).getDate()
-  return `${y}-${String(m).padStart(2, '0')}-${last}`
+function periodLabel(period: Period, anchorStr: string): string {
+  const anchor = new Date(anchorStr)
+  if (period === 'month') return format(anchor, 'MMMM yyyy')
+  if (period === 'quarter')
+    return `Q${Math.floor(anchor.getMonth() / 3) + 1} ${anchor.getFullYear()}`
+  return `${anchor.getFullYear()}`
 }
 
-function monthLabel(dateStr: string): string {
-  const [year, month] = dateStr.split('-')
-  const d = new Date(parseInt(year), parseInt(month) - 1, 1)
-  return format(d, 'MMMM yyyy')
-}
-
-function prevMonth(dateStr: string): string {
-  const [year, month] = dateStr.split('-').map(Number)
-  const d = new Date(year, month - 2, 1)
-  return format(d, 'yyyy-MM-dd')
-}
-
-function nextMonth(dateStr: string): string {
-  const [year, month] = dateStr.split('-').map(Number)
-  const d = new Date(year, month, 1)
-  return format(d, 'yyyy-MM-dd')
+function shiftAnchor(period: Period, anchorStr: string, dir: 1 | -1): string {
+  const anchor = new Date(anchorStr)
+  if (period === 'month') return fmt(addMonths(anchor, dir))
+  if (period === 'quarter') return fmt(addQuarters(anchor, dir))
+  if (period === 'year') return fmt(addYears(anchor, dir))
+  return anchorStr
 }
 
 export default function Transactions() {
@@ -58,22 +77,48 @@ export default function Transactions() {
   const today = new Date()
   const [searchParams] = useSearchParams()
   const initialCategory = searchParams.get('category') ?? ''
-  const [monthBase, setMonthBase] = useState(monthStart(today))
+  const initialProject = searchParams.get('project') ?? ''
+  const initialStart = searchParams.get('start') ?? ''
+  const initialEnd = searchParams.get('end') ?? ''
+  const hasInitialRange = Boolean(initialStart && initialEnd)
+  const hasInitialFilter = Boolean(
+    initialCategory || initialProject || hasInitialRange,
+  )
+
+  const [period, setPeriod] = useState<Period>(hasInitialRange ? 'custom' : 'month')
+  const [anchor, setAnchor] = useState(fmt(today))
+  const [customStart, setCustomStart] = useState(
+    initialStart || fmt(startOfMonth(today)),
+  )
+  const [customEnd, setCustomEnd] = useState(initialEnd || fmt(endOfMonth(today)))
   const [typeFilter, setTypeFilter] = useState<'' | 'income' | 'expense'>('')
   const [categoryFilter, setCategoryFilter] = useState(initialCategory)
+  const [projectFilter, setProjectFilter] = useState(initialProject)
+  const [recipientInput, setRecipientInput] = useState('')
+  const [recipientFilter, setRecipientFilter] = useState('')
   const [page, setPage] = useState(0)
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null)
-  const [filtersOpen, setFiltersOpen] = useState(Boolean(initialCategory))
+  const [filtersOpen, setFiltersOpen] = useState(hasInitialFilter)
 
-  const start = monthBase
-  const end = monthEnd(new Date(monthBase))
+  // Debounce the recipient/merchant search so typing doesn't refetch every key.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setRecipientFilter(recipientInput.trim())
+      setPage(0)
+    }, 350)
+    return () => clearTimeout(id)
+  }, [recipientInput])
+
+  const { start, end } = rangeFor(period, anchor, customStart, customEnd)
 
   const queryParams = {
-    start_date: start,
-    end_date: end,
+    ...(start ? { start_date: start } : {}),
+    ...(end ? { end_date: end } : {}),
     ...(typeFilter ? { type: typeFilter as 'income' | 'expense' } : {}),
     ...(categoryFilter ? { category_id: parseInt(categoryFilter) } : {}),
+    ...(projectFilter ? { project_id: parseInt(projectFilter) } : {}),
+    ...(recipientFilter ? { recipient: recipientFilter } : {}),
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   }
@@ -86,6 +131,11 @@ export default function Transactions() {
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
+  })
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: getProjects,
   })
 
   const deleteMutation = useMutation({
@@ -123,6 +173,28 @@ export default function Transactions() {
     setPage(0)
   }
 
+  function changePeriod(next: Period) {
+    if (next === 'custom') {
+      const base = period === 'custom' ? 'month' : period
+      const r = rangeFor(base, anchor, customStart, customEnd)
+      setCustomStart(r.start)
+      setCustomEnd(r.end)
+    }
+    setPeriod(next)
+    resetPage()
+  }
+
+  const activeProjects = projects.filter((p) => !p.archived)
+  const hasActiveFilters =
+    typeFilter || categoryFilter || projectFilter || recipientFilter
+
+  const periodOptions: { value: Period; label: string }[] = [
+    { value: 'month', label: t('transaction.periodMonth') },
+    { value: 'quarter', label: t('transaction.periodQuarter') },
+    { value: 'year', label: t('transaction.periodYear') },
+    { value: 'custom', label: t('transaction.periodCustom') },
+  ]
+
   return (
     <div className="flex flex-col gap-4 p-4 pb-28 max-w-2xl mx-auto">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -141,34 +213,76 @@ export default function Transactions() {
         </Button>
       </div>
 
-      {/* ── Month Selector ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl px-4 py-2.5 border border-gray-100 dark:border-gray-700">
-        <button
-          type="button"
-          onClick={() => {
-            setMonthBase((m) => prevMonth(m))
-            resetPage()
-          }}
-          className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          aria-label="Vorheriger Monat"
-        >
-          ‹
-        </button>
-        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-          {monthLabel(monthBase)}
-        </span>
-        <button
-          type="button"
-          onClick={() => {
-            setMonthBase((m) => nextMonth(m))
-            resetPage()
-          }}
-          className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          aria-label="Nächster Monat"
-        >
-          ›
-        </button>
+      {/* ── Period type selector ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-4 gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+        {periodOptions.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => changePeriod(opt.value)}
+            className={
+              'text-xs font-semibold rounded-lg py-1.5 transition-colors ' +
+              (period === opt.value
+                ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200')
+            }
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
+
+      {/* ── Period navigation / custom range ───────────────────────────────── */}
+      {period === 'custom' ? (
+        <div className="grid grid-cols-2 gap-3 bg-white dark:bg-gray-800 rounded-xl px-4 py-3 border border-gray-100 dark:border-gray-700">
+          <Input
+            label={t('common.from')}
+            type="date"
+            value={customStart}
+            onChange={(e) => {
+              setCustomStart(e.target.value)
+              resetPage()
+            }}
+          />
+          <Input
+            label={t('common.to')}
+            type="date"
+            value={customEnd}
+            onChange={(e) => {
+              setCustomEnd(e.target.value)
+              resetPage()
+            }}
+          />
+        </div>
+      ) : (
+        <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl px-4 py-2.5 border border-gray-100 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={() => {
+              setAnchor((a) => shiftAnchor(period, a, -1))
+              resetPage()
+            }}
+            className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            aria-label={t('transaction.prevPeriod')}
+          >
+            ‹
+          </button>
+          <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+            {periodLabel(period, anchor)}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setAnchor((a) => shiftAnchor(period, a, 1))
+              resetPage()
+            }}
+            className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            aria-label={t('transaction.nextPeriod')}
+          >
+            ›
+          </button>
+        </div>
+      )}
 
       {/* ── Filters panel ──────────────────────────────────────────────────── */}
       {filtersOpen && (
@@ -176,7 +290,7 @@ export default function Transactions() {
           <div className="grid grid-cols-2 gap-3">
             {/* Type filter */}
             <Select
-              label="Typ"
+              label={t('transaction.type')}
               value={typeFilter}
               onChange={(e) => {
                 setTypeFilter(e.target.value as '' | 'income' | 'expense')
@@ -190,14 +304,14 @@ export default function Transactions() {
 
             {/* Category filter */}
             <Select
-              label="Kategorie"
+              label={t('transaction.category')}
               value={categoryFilter}
               onChange={(e) => {
                 setCategoryFilter(e.target.value)
                 resetPage()
               }}
             >
-              <option value="">Alle</option>
+              <option value="">{t('transaction.all')}</option>
               {categories
                 .filter((c) => !c.archived)
                 .map((c) => (
@@ -206,19 +320,48 @@ export default function Transactions() {
                   </option>
                 ))}
             </Select>
+
+            {/* Project filter */}
+            <Select
+              label={t('transaction.project')}
+              value={projectFilter}
+              onChange={(e) => {
+                setProjectFilter(e.target.value)
+                resetPage()
+              }}
+            >
+              <option value="">{t('transaction.all')}</option>
+              {activeProjects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.icon ? `${p.icon} ` : ''}
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+
+            {/* Recipient / merchant search */}
+            <Input
+              label={t('transaction.recipient')}
+              value={recipientInput}
+              onChange={(e) => setRecipientInput(e.target.value)}
+              placeholder={t('action.search')}
+            />
           </div>
 
-          {(typeFilter || categoryFilter) && (
+          {hasActiveFilters && (
             <button
               type="button"
               className="text-xs text-blue-500 hover:text-blue-600 text-left"
               onClick={() => {
                 setTypeFilter('')
                 setCategoryFilter('')
+                setProjectFilter('')
+                setRecipientInput('')
+                setRecipientFilter('')
                 resetPage()
               }}
             >
-              Filter zurücksetzen
+              {t('transaction.resetFilters')}
             </button>
           )}
         </div>
@@ -259,10 +402,10 @@ export default function Transactions() {
             disabled={!hasPrev}
             onClick={() => setPage((p) => p - 1)}
           >
-            ← Zurück
+            ← {t('action.showLess')}
           </Button>
           <span className="text-xs text-gray-400">
-            Seite {page + 1}
+            {t('reports.page')} {page + 1}
           </span>
           <Button
             variant="secondary"
@@ -270,22 +413,10 @@ export default function Transactions() {
             disabled={!hasNext}
             onClick={() => setPage((p) => p + 1)}
           >
-            Weiter →
+            {t('action.showMore')} →
           </Button>
         </div>
       )}
-
-      {/* ── FAB ────────────────────────────────────────────────────────────── */}
-      <button
-        type="button"
-        onClick={openQuickAdd}
-        aria-label="Transaktion hinzufügen"
-        className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 active:scale-95
-          text-white shadow-lg shadow-blue-500/40 flex items-center justify-center
-          transition-all duration-150 hover:scale-105 active:shadow-none"
-      >
-        <span className="text-2xl font-light leading-none">+</span>
-      </button>
 
       {/* ── Edit Modal ──────────────────────────────────────────────────────── */}
       <Modal

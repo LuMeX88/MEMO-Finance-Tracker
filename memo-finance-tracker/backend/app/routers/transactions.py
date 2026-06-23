@@ -20,6 +20,7 @@ def list_transactions(
     category_id: Optional[int] = Query(None, description="Filter by category"),
     project_id: Optional[int] = Query(None, description="Filter by project"),
     type: Optional[TransactionType] = Query(None, description="Filter by type: income or expense"),
+    recipient: Optional[str] = Query(None, description="Filter by recipient / merchant (substring)"),
     limit: Optional[int] = Query(None, ge=1, le=1000, description="Max rows to return"),
     offset: int = Query(0, ge=0, description="Rows to skip before returning results"),
     db: Session = Depends(get_db),
@@ -35,6 +36,8 @@ def list_transactions(
         query = query.filter(Transaction.project_id == project_id)
     if type is not None:
         query = query.filter(Transaction.type == type)
+    if recipient:
+        query = query.filter(Transaction.recipient.ilike(f"%{recipient}%"))
     query = query.order_by(Transaction.date.desc(), Transaction.id.desc())
     if offset:
         query = query.offset(offset)

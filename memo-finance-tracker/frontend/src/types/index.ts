@@ -10,10 +10,49 @@ export interface Category {
 export interface Project {
   id: number
   name: string
+  icon: string | null
   budget: number | null
   end_date: string | null
+  mode: 'kanban' | 'waterfall'
   archived: boolean
   created_at: string
+}
+
+export interface ProjectColumn {
+  id: number
+  project_id: number
+  name: string
+  position: number
+  is_done: boolean
+}
+
+export interface ProjectTask {
+  id: number
+  project_id: number
+  column_id: number | null
+  title: string
+  description: string | null
+  cost: number
+  start_date: string | null
+  end_date: string | null
+  position: number
+  booked: boolean
+}
+
+export interface ProjectCostSummary {
+  budget: number | null
+  forecast_cost: number
+  booked_cost: number
+  planned_cost: number
+  spent: number
+  task_count: number
+}
+
+export interface ProjectBoard {
+  project: Project
+  columns: ProjectColumn[]
+  tasks: ProjectTask[]
+  summary: ProjectCostSummary
 }
 
 export interface Transaction {

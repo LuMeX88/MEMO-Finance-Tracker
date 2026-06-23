@@ -5,6 +5,9 @@ import type {
   ForecastResponse,
   OcrResult,
   Project,
+  ProjectBoard,
+  ProjectColumn,
+  ProjectTask,
   ReportSummary,
   Schedule,
   ScheduleSuggestion,
@@ -70,6 +73,7 @@ export type TransactionParams = {
   category_id?: number
   project_id?: number
   type?: 'income' | 'expense'
+  recipient?: string
   limit?: number
   offset?: number
 }
@@ -157,6 +161,82 @@ export function updateProject(
 
 export function deleteProject(id: number): Promise<void> {
   return request<void>(`/projects/${id}`, { method: 'DELETE' })
+}
+
+// ── Project board (Kanban / Waterfall) ─────────────────────────────────────────
+
+export function getProjectBoard(projectId: number): Promise<ProjectBoard> {
+  return request<ProjectBoard>(`/projects/${projectId}/board`)
+}
+
+export function createProjectColumn(
+  projectId: number,
+  data: { name: string; is_done?: boolean },
+): Promise<ProjectColumn> {
+  return request<ProjectColumn>(`/projects/${projectId}/columns`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateProjectColumn(
+  projectId: number,
+  columnId: number,
+  data: Partial<{ name: string; position: number; is_done: boolean }>,
+): Promise<ProjectColumn> {
+  return request<ProjectColumn>(`/projects/${projectId}/columns/${columnId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteProjectColumn(
+  projectId: number,
+  columnId: number,
+): Promise<void> {
+  return request<void>(`/projects/${projectId}/columns/${columnId}`, {
+    method: 'DELETE',
+  })
+}
+
+export type TaskInput = {
+  title: string
+  description?: string | null
+  cost?: number
+  column_id?: number | null
+  start_date?: string | null
+  end_date?: string | null
+  position?: number
+}
+
+export function createProjectTask(
+  projectId: number,
+  data: TaskInput,
+): Promise<ProjectTask> {
+  return request<ProjectTask>(`/projects/${projectId}/tasks`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateProjectTask(
+  projectId: number,
+  taskId: number,
+  data: Partial<TaskInput>,
+): Promise<ProjectTask> {
+  return request<ProjectTask>(`/projects/${projectId}/tasks/${taskId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteProjectTask(
+  projectId: number,
+  taskId: number,
+): Promise<void> {
+  return request<void>(`/projects/${projectId}/tasks/${taskId}`, {
+    method: 'DELETE',
+  })
 }
 
 // ── Schedules ─────────────────────────────────────────────────────────────────

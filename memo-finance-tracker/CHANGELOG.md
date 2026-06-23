@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.2.0 - 2026-06-23
+
+- **New – Project management & cost control:** clicking a project now opens a
+  full detail view that combines task planning with automatic forecast vs.
+  actual cost tracking.
+  - **Kanban mode:** organise tasks in freely configurable columns (default
+    *To Do*, *In Progress*, *Done*). Drag tasks between columns or move them
+    with the on-card arrows. A task's cost counts as a **forecast** until the
+    task reaches a column flagged as *Done*, where it switches to **booked**
+    (actual) cost.
+  - **Waterfall mode:** give each task a planned start/end date and a cost.
+    The cost stays a **forecast** while today is before the planned end date
+    and automatically becomes **booked** once the end date has passed.
+  - The project header shows forecast, booked, planned-total and the real
+    amount already spent (from linked bookings) against the budget.
+- **New – Bookings filters:** the bookings list can now be filtered by type,
+  category, project and recipient / merchant.
+- **New – Flexible time ranges:** browse bookings by **month, quarter or year**,
+  or pick a **custom date range**; the activity heatmap on the projects page is
+  now clickable and jumps to the bookings of the selected day.
+- **Fix:** the *Bookings* page showed the round **+** button twice (the global
+  quick-add button overlapped a page-local one); only the global one remains.
+
 ## 1.1.1 - 2026-06-23
 
 - **Fix:** creating categories, projects, transactions and schedules failed

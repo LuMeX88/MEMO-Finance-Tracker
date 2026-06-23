@@ -46,13 +46,15 @@ logging.config.dictConfig(
     }
 )
 
+from sqlalchemy import inspect as sa_inspect, text
+
 from app.database import Base, SessionLocal, engine
 from app.services.mqtt_publisher import MqttPublisher
 from app.services.ai import ai_service
 from app.version import get_version
 
 # Import all models so SQLAlchemy registers them before create_all
-from app.models import Category, IntervalType, Project, Schedule, ScheduleSuggestion, SuggestionStatus, Transaction, TransactionType  # noqa: F401
+from app.models import Category, IntervalType, Project, ProjectColumn, ProjectTask, Schedule, ScheduleSuggestion, SuggestionStatus, Transaction, TransactionType  # noqa: F401
 
 from app.routers import categories, forecast, projects, receipts, reports, schedules, suggestions, transactions
 from app.routers import ai
@@ -75,6 +77,33 @@ _DEFAULT_CATEGORIES = [
 logger = logging.getLogger("memo")
 
 
+def _run_light_migrations() -> None:
+    """Add columns introduced after a table was first created.
+
+    SQLAlchemy's ``create_all`` only creates missing *tables*; it never alters
+    existing ones. New columns on a pre-existing table (here: ``projects.mode``
+    and ``projects.icon``) must therefore be added by hand. Safe to run on every
+    startup — each ``ALTER`` only fires when the column is actually missing.
+    """
+    inspector = sa_inspect(engine)
+    if "projects" not in inspector.get_table_names():
+        return
+    existing = {col["name"] for col in inspector.get_columns("projects")}
+    statements = []
+    if "mode" not in existing:
+        statements.append(
+            "ALTER TABLE projects ADD COLUMN mode VARCHAR DEFAULT 'kanban' NOT NULL"
+        )
+    if "icon" not in existing:
+        statements.append("ALTER TABLE projects ADD COLUMN icon VARCHAR")
+    if not statements:
+        return
+    with engine.begin() as conn:
+        for stmt in statements:
+            conn.execute(text(stmt))
+    logger.info("Applied project schema migrations: %s", "; ".join(statements))
+
+
 async def _mqtt_publish_loop(publisher: MqttPublisher) -> None:
     """Periodically push current metrics to the MQTT broker."""
     while True:
@@ -92,6 +121,9 @@ async def _mqtt_publish_loop(publisher: MqttPublisher) -> None:
 async def lifespan(app: FastAPI):
     # Create all tables
     Base.metadata.create_all(bind=engine)
+
+    # Add any columns introduced after the tables were first created.
+    _run_light_migrations()
 
     # Seed default categories if the table is empty
     db = SessionLocal()

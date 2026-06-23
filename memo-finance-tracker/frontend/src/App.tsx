@@ -7,6 +7,7 @@ import Schedules from '@/pages/Schedules'
 import Reports from '@/pages/Reports'
 import CategoriesPage from '@/pages/CategoriesPage'
 import ProjectsPage from '@/pages/ProjectsPage'
+import ProjectDetailPage from '@/pages/ProjectDetailPage'
 import SettingsPage from '@/pages/SettingsPage'
 import ToastContainer from '@/components/ui/Toast'
 import { useSettingsStore } from '@/store/useSettingsStore'
@@ -49,6 +50,7 @@ export default function App() {
               <Route path="reports" element={<Reports />} />
               <Route path="categories" element={<CategoriesPage />} />
               <Route path="projects" element={<ProjectsPage />} />
+              <Route path="projects/:id" element={<ProjectDetailPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Routes>

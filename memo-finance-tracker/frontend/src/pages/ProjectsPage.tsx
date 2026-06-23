@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Pencil, Trash2, AlertTriangle, Activity, Archive,
@@ -28,6 +28,7 @@ type ProjectFormData = {
   icon: string
   budget: string
   end_date: string
+  mode: 'kanban' | 'waterfall'
   archived: boolean
 }
 
@@ -54,6 +55,7 @@ function ProjectModal({
     icon: '📁',
     budget: '',
     end_date: '',
+    mode: 'kanban',
     archived: false,
   })
 
@@ -64,6 +66,7 @@ function ProjectModal({
         icon: editing?.icon ?? '📁',
         budget: editing?.budget?.toString() ?? '',
         end_date: editing?.end_date ?? '',
+        mode: editing?.mode ?? 'kanban',
         archived: editing?.archived ?? false,
       })
     }
@@ -113,6 +116,29 @@ function ProjectModal({
           onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
         />
 
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t('projects.method')}
+          </span>
+          <div className="grid grid-cols-2 gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            {(['kanban', 'waterfall'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, mode: m }))}
+                className={
+                  'text-xs font-semibold rounded-md py-1.5 transition-colors ' +
+                  (form.mode === m
+                    ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400')
+                }
+              >
+                {m === 'kanban' ? t('projects.kanban') : t('projects.waterfall')}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {editing && (
           <div className="flex items-center gap-3">
             <button
@@ -160,6 +186,7 @@ function ProjectModal({
 function ActivityHeatmap() {
   const currency = useSettingsStore((s) => s.currency)
   const t = useT()
+  const navigate = useNavigate()
   const today = new Date()
   const yearAgo = subYears(today, 1)
 
@@ -226,10 +253,12 @@ function ActivityHeatmap() {
                 const key = format(day, 'yyyy-MM-dd')
                 const amount = dayMap[key] ?? 0
                 return (
-                  <div
+                  <button
                     key={di}
+                    type="button"
+                    onClick={() => navigate(`/transactions?start=${key}&end=${key}`)}
                     title={`${format(day, 'dd.MM.yyyy')}: ${formatCurrency(amount, currency)}`}
-                    className={`w-3 h-3 rounded-sm cursor-default transition-opacity hover:opacity-75 ${getColor(amount)}`}
+                    className={`w-3 h-3 rounded-sm cursor-pointer transition-opacity hover:opacity-75 hover:ring-1 hover:ring-primary-400 ${getColor(amount)}`}
                   />
                 )
               })}
@@ -259,6 +288,7 @@ export default function ProjectsPage() {
   const addToast = useUIStore((s) => s.addToast)
   const currency = useSettingsStore((s) => s.currency)
   const t = useT()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -338,6 +368,7 @@ export default function ProjectsPage() {
       icon: data.icon,
       budget: data.budget ? parseFloat(data.budget) : null,
       end_date: data.end_date || null,
+      mode: data.mode,
       archived: data.archived,
     }
     if (editingProject) {
@@ -395,7 +426,8 @@ export default function ProjectsPage() {
             return (
               <div
                 key={proj.id}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4"
+                onClick={() => navigate(`/projects/${proj.id}`)}
+                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:border-primary-300 dark:hover:border-primary-700 transition-all"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -406,6 +438,9 @@ export default function ProjectsPage() {
                       <p className="text-lg font-bold text-gray-900 dark:text-white truncate">
                         {proj.name}
                       </p>
+                      <span className="inline-block mt-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+                        {proj.mode === 'waterfall' ? t('projects.waterfall') : t('projects.kanban')}
+                      </span>
                       {proj.end_date && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                           Bis {formatDate(proj.end_date)}
@@ -438,7 +473,8 @@ export default function ProjectsPage() {
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         setEditingProject(proj)
                         setModalOpen(true)
                       }}
@@ -448,7 +484,10 @@ export default function ProjectsPage() {
                       <Pencil size={15} />
                     </button>
                     <button
-                      onClick={() => setDeleteProjectId(proj.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeleteProjectId(proj.id)
+                      }}
                       className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       aria-label={t('action.delete')}
                     >
