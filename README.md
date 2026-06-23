@@ -37,8 +37,10 @@ Most finance apps live in the cloud, share your data, and cost a monthly fee. ME
 - **Reports & Export** – Total income, total expenses, monthly averages, biggest transactions, period comparisons and one-click **CSV / PDF export** (generated locally)
 - **Categories & Projects** – Fully customizable categories with icons and colors, project budgets with progress tracking
 - **Receipt Scanning (OCR)** – Capture a receipt with your **camera** or pick an existing **image file**. Tesseract OCR with OpenCV pre-processing runs locally and auto-fills amount, date and recipient as a suggestion
-- **Embedded Local AI** *(optional)* – A tiny local language model (Qwen2.5-0.5B, ~400 MB) runs **inside the add-on** – no Ollama, no cloud. It auto-categorizes new transactions, cleans up noisy OCR results and writes a short monthly spending insight. Can be switched off in the configuration
+- **Embedded Local AI** *(optional)* – A tiny local language model (Qwen2.5-0.5B, ~400 MB) runs **inside the add-on** – no Ollama, no cloud. It auto-categorizes new transactions, cleans up noisy OCR results and writes a short monthly spending insight. Can be **switched on/off right from Settings** (or via the configuration)
 - **Smart Schedule Suggestions** – The app detects recurring patterns in your transactions and suggests turning them into schedules automatically
+- **Demo data & suggested categories** – One-click **load/remove sample data** to explore the app and **add best-practice budgeting categories** (or remove the unused ones), all from **Settings**
+- **Backup & Restore** – Download all your data as JSON and restore it again
 - **MQTT Sensor Entities** – Key metrics published to Home Assistant via MQTT Discovery (see below)
 - **Home Assistant Ingress** – Open MEMO straight from the HA sidebar; authentication handled by Home Assistant
 - **Multilingual** – German and English
@@ -106,7 +108,7 @@ MEMO ships with a small embedded language model so smart features work **without
   - **Auto-categorization** – when you add a transaction without picking a category, the model suggests the best-matching one (falling back to a default if unsure).
   - **OCR cleanup** – when receipt scanning is unsure about a field, the model helps recover the amount, date or merchant from the raw text.
   - **Monthly insight** – an "AI Insight" card on the dashboard summarizes the last 30 days in two or three sentences with one saving tip.
-- **Disable it:** set `ai_enabled: false` in the add-on configuration. Every AI feature then degrades gracefully and the rest of the app keeps working.
+- **Disable it:** set `ai_enabled: false` in the add-on configuration, or use the **AI (local)** toggle under **Settings**. Every AI feature then degrades gracefully and the rest of the app keeps working.
 
 > On low-power hardware (e.g. a Raspberry Pi) responses can take a few seconds. If you don't want the model at all, keep `ai_enabled` off.
 

@@ -14,7 +14,9 @@ categorization and insights – all running 100% on your own hardware.
 - **Receipt scanning (OCR)** via camera or file upload, with local Tesseract +
   OpenCV pre-processing.
 - **Optional embedded AI** (Qwen2.5-0.5B) for auto-categorization, OCR cleanup
-  and a short monthly insight – no cloud, no Ollama.
+  and a short monthly insight – no cloud, no Ollama. Toggle it on/off in Settings.
+- **Self-service tools in Settings**: load/remove **demo data**, add/remove
+  **suggested best-practice categories**, and **backup/restore** all data as JSON.
 - **MQTT sensors** for income, expenses, balance and transaction count.
 - **German & English**, light & dark mode.
 
@@ -86,9 +88,25 @@ MEMO can run a small language model **inside the add-on** – no external servic
   and never blocks startup.
 - **Features:** auto-categorization of new transactions, OCR cleanup, and an
   **AI Insight** card on the dashboard summarizing the last 30 days.
-- **Disable:** set `ai_enabled: false`. All AI features then degrade gracefully.
+- **Disable:** set `ai_enabled: false`, or use the **AI (local)** toggle under
+  **Settings**. All AI features then degrade gracefully.
 
 > On low-power devices (e.g. a Raspberry Pi) AI responses can take a few seconds.
+
+## Settings
+
+The **Settings** page offers a few self-service tools:
+
+- **AI (local)** – turn the embedded AI on or off at any time. The choice is
+  saved and the model is loaded or unloaded accordingly.
+- **Demo data** – **Load demo data** fills the app with a realistic ~3-month
+  sample (transactions, projects and schedules) so you can explore every
+  feature; **Erase demo data** removes only those sample entries and never
+  touches data you created yourself.
+- **Suggested categories** – **Add categories** inserts a set of best-practice
+  budgeting categories (existing ones are kept); **Remove suggested** deletes
+  the suggested categories again, skipping any that are still in use.
+- **Backup & Restore** – download all data as a JSON file and import it later.
 
 ## Version
 
