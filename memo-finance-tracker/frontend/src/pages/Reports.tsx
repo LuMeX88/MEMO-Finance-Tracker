@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -102,6 +103,9 @@ function DiffBadge({
 
 export default function Reports() {
   const t = useT()
+  const navigate = useNavigate()
+  const goToCategory = (categoryId: number) =>
+    navigate(`/transactions?category=${categoryId}`)
   const PRESET_LABELS: Record<DateRangePreset, string> = {
     this_month: t('reports.thisMonth'),
     last_month: t('reports.lastMonth'),
@@ -144,6 +148,7 @@ export default function Reports() {
   })
 
   const pieData = byCategory.map((c, i) => ({
+    id: c.category.id,
     name: `${c.category.icon} ${c.category.name}`,
     value: c.total,
     color: c.category.color || CHART_COLORS[i % CHART_COLORS.length],
@@ -287,6 +292,12 @@ export default function Reports() {
                   outerRadius={90}
                   paddingAngle={2}
                   dataKey="value"
+                  className="cursor-pointer focus:outline-none"
+                  onClick={(data) => {
+                    const d = data as unknown as { id?: number; payload?: { id?: number } }
+                    const id = d?.id ?? d?.payload?.id
+                    if (typeof id === 'number') goToCategory(id)
+                  }}
                 >
                   {pieData.map((entry, i) => (
                     <Cell key={i} fill={entry.color} />
@@ -302,7 +313,13 @@ export default function Reports() {
             {/* Legend list */}
             <div className="flex-1 space-y-2 w-full">
               {byCategory.map((c, i) => (
-                <div key={c.category.id} className="space-y-1">
+                <button
+                  type="button"
+                  key={c.category.id}
+                  onClick={() => goToCategory(c.category.id)}
+                  title={t('reports.viewTransactions')}
+                  className="block w-full text-left space-y-1 rounded-lg px-1.5 -mx-1.5 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                >
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2 min-w-0">
                       <span
@@ -335,7 +352,7 @@ export default function Reports() {
                       }}
                     />
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>

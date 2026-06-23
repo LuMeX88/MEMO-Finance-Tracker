@@ -10,12 +10,12 @@ from app.schemas.schedule import ScheduleCreate, ScheduleResponse, ScheduleUpdat
 router = APIRouter(prefix="/schedules", tags=["schedules"])
 
 
-@router.get("/", response_model=List[ScheduleResponse])
+@router.get("", response_model=List[ScheduleResponse])
 def list_schedules(db: Session = Depends(get_db)):
     return db.query(Schedule).order_by(Schedule.next_due_date).all()
 
 
-@router.post("/", response_model=ScheduleResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ScheduleResponse, status_code=status.HTTP_201_CREATED)
 def create_schedule(schedule: ScheduleCreate, db: Session = Depends(get_db)):
     db_schedule = Schedule(**schedule.model_dump())
     db.add(db_schedule)

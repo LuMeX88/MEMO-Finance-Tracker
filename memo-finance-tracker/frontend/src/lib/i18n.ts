@@ -3,6 +3,7 @@ import { useSettingsStore } from '@/store/useSettingsStore'
 const de = {
   // ── Navigation ──────────────────────────────────────────────────────────────
   'nav.dashboard': 'Dashboard',
+  'nav.transactions': 'Buchungen',
   'nav.schedules': 'Wiederkehrend',
   'nav.reports': 'Berichte',
   'nav.categories': 'Kategorien',
@@ -142,6 +143,7 @@ const de = {
   'reports.avgPerTransaction': 'Ø pro Transaktion',
   'reports.biggestExpense': 'Grösster Einzelposten',
   'reports.byCategory': 'Ausgaben nach Kategorie',
+  'reports.viewTransactions': 'Buchungen anzeigen',
   'reports.timeline': 'Zeitverlauf',
   'reports.comparison': 'Vergleich',
   'reports.currentMonth': 'Aktueller Monat',
@@ -258,6 +260,7 @@ const de = {
 
 const en: Record<keyof typeof de, string> = {
   'nav.dashboard': 'Dashboard',
+  'nav.transactions': 'Transactions',
   'nav.schedules': 'Schedules',
   'nav.reports': 'Reports',
   'nav.categories': 'Categories',
@@ -389,6 +392,7 @@ const en: Record<keyof typeof de, string> = {
   'reports.avgPerTransaction': 'Avg / Transaction',
   'reports.biggestExpense': 'Biggest Expense',
   'reports.byCategory': 'Expenses by Category',
+  'reports.viewTransactions': 'View transactions',
   'reports.timeline': 'Timeline',
   'reports.comparison': 'Comparison',
   'reports.currentMonth': 'Current Month',

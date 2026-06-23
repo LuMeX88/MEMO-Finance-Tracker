@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Receipt, Filter } from 'lucide-react'
 import { format } from 'date-fns'
@@ -55,13 +56,15 @@ export default function Transactions() {
   const openQuickAdd = useUIStore((s) => s.openQuickAdd)
 
   const today = new Date()
+  const [searchParams] = useSearchParams()
+  const initialCategory = searchParams.get('category') ?? ''
   const [monthBase, setMonthBase] = useState(monthStart(today))
   const [typeFilter, setTypeFilter] = useState<'' | 'income' | 'expense'>('')
-  const [categoryFilter, setCategoryFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState(initialCategory)
   const [page, setPage] = useState(0)
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null)
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(Boolean(initialCategory))
 
   const start = monthBase
   const end = monthEnd(new Date(monthBase))

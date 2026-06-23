@@ -34,12 +34,12 @@ SUGGESTED_CATEGORIES = [
 ]
 
 
-@router.get("/", response_model=List[CategoryResponse])
+@router.get("", response_model=List[CategoryResponse])
 def list_categories(db: Session = Depends(get_db)):
     return db.query(Category).order_by(Category.name).all()
 
 
-@router.post("/", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
 def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
     db_category = Category(**category.model_dump())
     db.add(db_category)

@@ -13,27 +13,37 @@ from app.services.ai import ai_service
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
-@router.get("/", response_model=List[TransactionResponse])
+@router.get("", response_model=List[TransactionResponse])
 def list_transactions(
-    date_from: Optional[date] = Query(None, description="Filter by start date (inclusive)"),
-    date_to: Optional[date] = Query(None, description="Filter by end date (inclusive)"),
+    start_date: Optional[date] = Query(None, description="Filter by start date (inclusive)"),
+    end_date: Optional[date] = Query(None, description="Filter by end date (inclusive)"),
     category_id: Optional[int] = Query(None, description="Filter by category"),
+    project_id: Optional[int] = Query(None, description="Filter by project"),
     type: Optional[TransactionType] = Query(None, description="Filter by type: income or expense"),
+    limit: Optional[int] = Query(None, ge=1, le=1000, description="Max rows to return"),
+    offset: int = Query(0, ge=0, description="Rows to skip before returning results"),
     db: Session = Depends(get_db),
 ):
     query = db.query(Transaction)
-    if date_from:
-        query = query.filter(Transaction.date >= date_from)
-    if date_to:
-        query = query.filter(Transaction.date <= date_to)
+    if start_date:
+        query = query.filter(Transaction.date >= start_date)
+    if end_date:
+        query = query.filter(Transaction.date <= end_date)
     if category_id is not None:
         query = query.filter(Transaction.category_id == category_id)
+    if project_id is not None:
+        query = query.filter(Transaction.project_id == project_id)
     if type is not None:
         query = query.filter(Transaction.type == type)
-    return query.order_by(Transaction.date.desc(), Transaction.id.desc()).all()
+    query = query.order_by(Transaction.date.desc(), Transaction.id.desc())
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
-@router.post("/", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 def create_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
     data = transaction.model_dump()
     if data.get("category_id") is None:

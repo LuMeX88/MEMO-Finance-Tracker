@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BarChart2, Calendar, Home, Settings, Tag, FolderOpen } from 'lucide-react'
+import { BarChart2, Calendar, Home, Settings, Tag, FolderOpen, Receipt } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useT } from '@/lib/i18n'
 import SpeedDial from '@/components/ui/SpeedDial'
@@ -13,6 +13,7 @@ export default function AppLayout() {
 
   const navItems = [
     { to: '/', label: t('nav.dashboard'), icon: Home, end: true },
+    { to: '/transactions', label: t('nav.transactions'), icon: Receipt, end: false },
     { to: '/schedules', label: t('nav.schedules'), icon: Calendar, end: false },
     { to: '/reports', label: t('nav.reports'), icon: BarChart2, end: false },
     { to: '/categories', label: t('nav.categories'), icon: Tag, end: false },

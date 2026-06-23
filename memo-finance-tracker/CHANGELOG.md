@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.1 - 2026-06-23
+
+- **Fix:** creating categories, projects, transactions and schedules failed
+  behind Home Assistant ingress. The collection endpoints required a trailing
+  slash and issued a 307 redirect whose absolute target dropped the ingress
+  path, so the redirected request never reached the add-on. The endpoints now
+  respond on the exact paths the UI calls — no redirect.
+- **Fix:** the same redirect made category and transaction lists look empty,
+  which is why *Suggested categories* and *Load demo data* appeared to do
+  nothing and the *New category* / *New project* button showed up twice (the
+  empty-state call-to-action stacked on the header button). All now behave.
+- **Fix:** the bookings list ignored the month filter and pagination because
+  the API used different query-parameter names; month navigation, the category
+  filter and paging now work.
+- **New:** a **Bookings** entry in the main menu opens the full transaction
+  manager where every booking can be edited or deleted.
+- **New:** clicking a slice or a row in *Reports → Expenses by Category* opens
+  the bookings list filtered to that category.
+
 ## 1.1.0 - 2026-06-23
 
 - **Settings → local AI toggle**: turn the embedded AI on or off at any time;

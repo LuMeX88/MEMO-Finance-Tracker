@@ -10,12 +10,12 @@ from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
-@router.get("/", response_model=List[ProjectResponse])
+@router.get("", response_model=List[ProjectResponse])
 def list_projects(db: Session = Depends(get_db)):
     return db.query(Project).order_by(Project.name).all()
 
 
-@router.post("/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
     db_project = Project(**project.model_dump())
     db.add(db_project)
