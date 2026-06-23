@@ -10,6 +10,9 @@
 - **CSV / PDF report export**, generated locally.
 - **Version & build date** are now stamped from the build and shown under
   Settings → Info, with a direct link to the documentation.
+- **Fix:** pin NumPy to the 1.26 line (and OpenCV to a matching build) so the
+  add-on starts on older CPUs and on VMs with a generic CPU model, which
+  previously crashed with `NumPy ... baseline optimizations (X86_V2)`.
 
 ## 1.0.0
 
