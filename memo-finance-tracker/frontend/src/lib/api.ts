@@ -7,6 +7,7 @@ import type {
   Project,
   ProjectBoard,
   ProjectColumn,
+  ProjectCostSummaryItem,
   ProjectTask,
   ReportSummary,
   Schedule,
@@ -161,6 +162,10 @@ export function updateProject(
 
 export function deleteProject(id: number): Promise<void> {
   return request<void>(`/projects/${id}`, { method: 'DELETE' })
+}
+
+export function getProjectCostSummaries(): Promise<ProjectCostSummaryItem[]> {
+  return request<ProjectCostSummaryItem[]>('/projects/cost-summary')
 }
 
 // ── Project board (Kanban / Waterfall) ─────────────────────────────────────────

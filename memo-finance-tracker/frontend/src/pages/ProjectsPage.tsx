@@ -7,8 +7,9 @@ import {
 import { subYears, eachDayOfInterval, format } from 'date-fns'
 import {
   getProjects, createProject, updateProject, deleteProject, getTransactions,
+  getProjectCostSummaries,
 } from '@/lib/api'
-import type { Project } from '@/types'
+import type { Project, ProjectCostSummaryItem } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useUIStore } from '@/store/useUIStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
@@ -310,30 +311,33 @@ export default function ProjectsPage() {
     queryFn: getProjects,
   })
 
-  const { data: allTransactions = [] } = useQuery({
-    queryKey: ['transactions', { type: 'expense' }],
-    queryFn: () => getTransactions({ type: 'expense' }),
+  // Per-project cost rollup. Hitting this endpoint also reconciles booked task
+  // costs into real expense transactions, so the "spent" here (and the bookings
+  // list / reports it feeds) always reflects what has actually been booked.
+  const { data: costSummaries = [] } = useQuery({
+    queryKey: ['project-cost-summaries'],
+    queryFn: getProjectCostSummaries,
   })
 
-  const spentByProject = useMemo(() => {
-    const map: Record<number, number> = {}
-    for (const tx of allTransactions) {
-      if (tx.project_id !== null) {
-        map[tx.project_id] = (map[tx.project_id] ?? 0) + tx.amount
-      }
-    }
+  const summaryByProject = useMemo(() => {
+    const map: Record<number, ProjectCostSummaryItem> = {}
+    for (const s of costSummaries) map[s.project_id] = s
     return map
-  }, [allTransactions])
+  }, [costSummaries])
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
   const createMut = useMutation({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mutationFn: (data: any) => createProject(data),
-    onSuccess: () => {
+    onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project-cost-summaries'] })
       setModalOpen(false)
       addToast(t('projects.created'), 'success')
+      // Open the freshly created project straight away so its board (Kanban
+      // or Waterfall) is visible and usable immediately.
+      if (created?.id != null) navigate(`/projects/${created.id}`)
     },
     onError: () => addToast(t('common.error'), 'error'),
   })
@@ -343,6 +347,7 @@ export default function ProjectsPage() {
     mutationFn: ({ id, data }: { id: number; data: any }) => updateProject(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project-cost-summaries'] })
       setModalOpen(false)
       addToast(t('projects.updated'), 'success')
     },
@@ -353,6 +358,7 @@ export default function ProjectsPage() {
     mutationFn: deleteProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project-cost-summaries'] })
       setDeleteProjectId(null)
       setModalOpen(false)
       addToast(t('projects.deleted'), 'success')
@@ -413,7 +419,10 @@ export default function ProjectsPage() {
       ) : (
         <div className="space-y-3">
           {activeProjects.map((proj) => {
-            const spent = spentByProject[proj.id] ?? 0
+            const summary = summaryByProject[proj.id]
+            const spent = summary?.spent ?? 0
+            const forecast = summary?.forecast_cost ?? 0
+            const booked = summary?.booked_cost ?? 0
             const hasBudget = proj.budget !== null && proj.budget > 0
             const progress = hasBudget ? Math.min((spent / proj.budget!) * 100, 100) : 0
             const barColor =
@@ -467,6 +476,20 @@ export default function ProjectsPage() {
                           <span className="inline-block text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
                             {t('projects.noBudget')}
                           </span>
+                        )}
+                        {(booked > 0 || forecast > 0) && (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            {booked > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                {t('projects.booked')}: {formatCurrency(booked, currency)}
+                              </span>
+                            )}
+                            {forecast > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300">
+                                {t('projects.forecast')}: {formatCurrency(forecast, currency)}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

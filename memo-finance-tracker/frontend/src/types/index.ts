@@ -48,6 +48,10 @@ export interface ProjectCostSummary {
   task_count: number
 }
 
+export interface ProjectCostSummaryItem extends ProjectCostSummary {
+  project_id: number
+}
+
 export interface ProjectBoard {
   project: Project
   columns: ProjectColumn[]

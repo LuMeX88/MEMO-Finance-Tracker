@@ -59,6 +59,7 @@ from app.models import Category, IntervalType, Project, ProjectColumn, ProjectTa
 from app.routers import categories, forecast, projects, receipts, reports, schedules, suggestions, transactions
 from app.routers import ai
 from app.routers import demo
+from app.routers.projects import reconcile_all_projects
 
 # ---------------------------------------------------------------------------
 # Default categories seeded on first startup
@@ -96,6 +97,13 @@ def _run_light_migrations() -> None:
         )
     if "icon" not in existing:
         statements.append("ALTER TABLE projects ADD COLUMN icon VARCHAR")
+    # project_tasks gained a link to the auto-managed booked-cost transaction.
+    if "project_tasks" in inspector.get_table_names():
+        task_cols = {col["name"] for col in inspector.get_columns("project_tasks")}
+        if "transaction_id" not in task_cols:
+            statements.append(
+                "ALTER TABLE project_tasks ADD COLUMN transaction_id INTEGER"
+            )
     if not statements:
         return
     with engine.begin() as conn:
@@ -132,9 +140,15 @@ async def lifespan(app: FastAPI):
             for data in _DEFAULT_CATEGORIES:
                 db.add(Category(**data))
             db.commit()
+        # Mirror booked task costs into transactions. Doing this at startup
+        # catches Waterfall tasks whose end date has passed while the add-on
+        # was stopped, so their costs show up in bookings/reports/budget bars.
+        try:
+            reconcile_all_projects(db)
+        except Exception:  # pragma: no cover - never block startup on this
+            logger.exception("Project booked-cost reconciliation failed at startup")
     finally:
         db.close()
-
     # Optional MQTT Discovery publisher (no-op unless MQTT_HOST is configured)
     publisher = MqttPublisher()
     mqtt_task = None

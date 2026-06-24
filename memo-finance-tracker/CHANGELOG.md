@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.2.1 - 2026-06-24
+
+- **Fix – Project costs now flow into the rest of the app:** the cost of a
+  **booked** task (a Kanban task in a *Done* column, or a Waterfall task whose
+  planned end date has passed) is now mirrored into a real **expense booking**
+  linked to the project. As a result those costs finally appear where you would
+  expect them:
+  - in the **Bookings** overview (and they count towards reports), and
+  - in the **budget bar on the main Projects page**, which previously stayed at
+    €0 even after a project's budget was allocated and tasks were booked.
+  - Forecast (not-yet-booked) tasks stay out of your bookings; their planned
+    amount is now shown as a **Forecast** badge on each project card, while
+    booked amounts show as a **Booked** badge.
+  - The mirrored bookings stay in sync automatically: moving a task in/out of a
+    *Done* column, changing its cost, or a Waterfall end date passing all update
+    or remove the booking. Deleting a task or project removes its booking too.
+    The booking's category stays editable — re-file it and it will be kept.
+- **Fix:** selecting an icon while creating or editing a project did not always
+  apply (duplicate emoji entries collided in the picker); icon selection now
+  works reliably, including from the search results.
+- **Fix:** creating a project now opens it straight away so a new **Waterfall**
+  (or Kanban) project is immediately visible and usable.
+
 ## 1.2.0 - 2026-06-23
 
 - **New – Project management & cost control:** clicking a project now opens a

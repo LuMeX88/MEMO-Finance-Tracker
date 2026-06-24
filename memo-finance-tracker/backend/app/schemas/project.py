@@ -107,6 +107,12 @@ class ProjectCostSummary(BaseModel):
     task_count: int
 
 
+class ProjectCostSummaryItem(ProjectCostSummary):
+    """Per-project cost rollup used by the projects overview page."""
+
+    project_id: int
+
+
 class ProjectBoardResponse(BaseModel):
     project: ProjectResponse
     columns: List[ProjectColumnResponse]

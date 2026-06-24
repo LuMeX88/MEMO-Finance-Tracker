@@ -451,8 +451,21 @@ export default function ProjectDetailPage() {
     enabled: Number.isFinite(projectId),
   })
 
-  const invalidate = () =>
+  // Booking a task creates/updates/removes a real expense transaction, so a
+  // board change must also refresh everything that reads transactions: the
+  // bookings list, reports, the activity heatmap and the projects overview.
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: boardKey })
+    queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    queryClient.invalidateQueries({ queryKey: ['transactions-heatmap'] })
+    queryClient.invalidateQueries({ queryKey: ['project-cost-summaries'] })
+    queryClient.invalidateQueries({ queryKey: ['report-summary'] })
+    queryClient.invalidateQueries({ queryKey: ['report-by-category'] })
+    queryClient.invalidateQueries({ queryKey: ['report-category'] })
+    queryClient.invalidateQueries({ queryKey: ['report-timeline'] })
+    queryClient.invalidateQueries({ queryKey: ['report-comparison'] })
+    queryClient.invalidateQueries({ queryKey: ['forecast'] })
+  }
 
   // ── Mutations ────────────────────────────────────────────────────────────────
 

@@ -105,7 +105,7 @@ const ICONS: [string, string, string][] = [
   ['📋', 'liste aufgaben', 'list tasks'],
   ['📐', 'büro material', 'office supplies'],
   ['🔬', 'wissenschaft forschung', 'science research'],
-  ['💻', 'computer software', 'computer software'],
+  ['�️', 'computer software desktop', 'computer software desktop'],
   ['🖨️', 'drucker büro', 'printer office'],
   // Family & Social
   ['👨‍👩‍👧‍👦', 'familie', 'family'],
@@ -255,9 +255,9 @@ export default function IconPicker({ value, onChange, label }: IconPickerProps) 
                 {t('common.noData')}
               </p>
             ) : (
-              displayIcons.map(([emoji]) => (
+              displayIcons.map(([emoji], i) => (
                 <button
-                  key={emoji}
+                  key={`${emoji}-${i}`}
                   type="button"
                   onClick={() => select(emoji)}
                   className={cn(

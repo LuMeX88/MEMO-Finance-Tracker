@@ -88,6 +88,12 @@ class ProjectTask(Base):
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     position = Column(Integer, nullable=False, default=0)
+    # When a task's cost is "booked" it is mirrored into a real expense
+    # transaction so it shows up in the bookings list, reports and budget bars.
+    # This holds the id of that auto-managed transaction (cleared when unbooked).
+    transaction_id = Column(
+        Integer, ForeignKey("transactions.id"), nullable=True, index=True
+    )
     created_at = Column(
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
