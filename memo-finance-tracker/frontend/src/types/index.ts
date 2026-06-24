@@ -172,6 +172,7 @@ export interface AiStatus {
   ready: boolean
   detail: string
   model: string
+  progress: number
 }
 
 export interface ScheduleSuggestion {

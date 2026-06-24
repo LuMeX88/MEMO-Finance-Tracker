@@ -119,6 +119,7 @@ export default function SettingsPage() {
   const [pendingRestoreData, setPendingRestoreData] = useState<RestoreData | null>(null)
   const [demoEraseConfirm, setDemoEraseConfirm] = useState(false)
   const [suggestedEraseConfirm, setSuggestedEraseConfirm] = useState(false)
+  const [aiConfirm, setAiConfirm] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: categories = [] } = useQuery({
@@ -135,10 +136,13 @@ export default function SettingsPage() {
   const { data: aiStatus } = useQuery({
     queryKey: ['ai-status'],
     queryFn: getAiStatus,
-    // Poll only while the model is still downloading/loading, then stop.
+    // Poll while the model is still downloading/loading, then stop. Poll faster
+    // during the download so the progress bar moves smoothly.
     refetchInterval: (query) => {
       const state = query.state.data?.state
-      return state === 'downloading' || state === 'loading' ? 3000 : false
+      if (state === 'downloading') return 1500
+      if (state === 'loading') return 3000
+      return false
     },
   })
 
@@ -397,9 +401,40 @@ export default function SettingsPage() {
             checked={!!aiStatus?.enabled}
             disabled={aiMutation.isPending}
             label={t('settings.aiEnable')}
-            onChange={(next) => aiMutation.mutate(next)}
+            onChange={(next) => {
+              // Enabling triggers a large download + heavy local inference, so
+              // confirm first (with the system requirements). Disabling is instant.
+              if (next) setAiConfirm(true)
+              else aiMutation.mutate(false)
+            }}
           />
         </SettingRow>
+
+        {/* Real download / load progress bar (only while installing the model). */}
+        {aiStatus?.enabled &&
+          (aiStatus.state === 'downloading' || aiStatus.state === 'loading') && (
+            <div className="pb-4">
+              {aiStatus.state === 'downloading' && (
+                <div className="mb-1.5 flex justify-end text-xs font-medium tabular-nums text-gray-500 dark:text-gray-400">
+                  {aiStatus.progress ?? 0}%
+                </div>
+              )}
+              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                <div
+                  className={
+                    'h-full rounded-full bg-primary-500 transition-all duration-700 ease-out' +
+                    (aiStatus.state === 'loading' ? ' animate-pulse' : '')
+                  }
+                  style={{
+                    width:
+                      aiStatus.state === 'downloading'
+                        ? `${Math.max(3, aiStatus.progress ?? 0)}%`
+                        : '100%',
+                  }}
+                />
+              </div>
+            </div>
+          )}
       </div>
 
       {/* ── Backup & Restore ──────────────────────────────────────────────── */}
@@ -567,6 +602,60 @@ export default function SettingsPage() {
           </a>
         </SettingRow>
       </div>
+
+      {/* Enable local AI confirmation (system requirements + slowness warning) */}
+      <Modal
+        open={aiConfirm}
+        onClose={() => setAiConfirm(false)}
+        title={t('settings.aiConfirmTitle')}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            {t('settings.aiConfirmIntro')}
+          </p>
+          <ul className="space-y-1.5 text-sm text-gray-700 dark:text-gray-300">
+            <li className="flex items-start gap-2">
+              <span className="text-primary-500 mt-0.5">•</span>
+              <span>{t('settings.aiFeatureReceipts')}</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary-500 mt-0.5">•</span>
+              <span>{t('settings.aiFeatureCategorize')}</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary-500 mt-0.5">•</span>
+              <span>{t('settings.aiFeatureInsights')}</span>
+            </li>
+          </ul>
+          <div className="rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 p-3">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+              {t('settings.aiConfirmReqsTitle')}
+            </p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              {t('settings.aiConfirmReqs')}
+            </p>
+          </div>
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="text-amber-500 flex-shrink-0 mt-0.5" size={20} />
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {t('settings.aiConfirmSlow')}
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="secondary" onClick={() => setAiConfirm(false)}>
+              {t('settings.aiConfirmCancel')}
+            </Button>
+            <Button
+              onClick={() => {
+                setAiConfirm(false)
+                aiMutation.mutate(true)
+              }}
+            >
+              {t('settings.aiConfirmEnable')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Delete Confirm Modal */}
       <Modal

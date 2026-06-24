@@ -134,8 +134,29 @@ function AiInsightCard({ currency }: { currency: string }) {
     onSuccess: setInsight,
   })
 
-  // Hidden entirely when AI is disabled or failed — graceful degradation.
-  if (!status || !status.enabled || status.state === 'error') return null
+  // Hidden while still loading or on a hard error — graceful degradation.
+  if (!status || status.state === 'error') return null
+
+  // Disabled (opt-in feature): nudge the user to turn it on in Settings.
+  if (!status.enabled) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1">
+          <Sparkles size={15} className="text-primary-500" />
+          {t('ai.insightTitle')}
+        </h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+          {t('ai.disabledHint')}
+        </p>
+        <Link
+          to="/settings"
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline"
+        >
+          {t('ai.openSettings')}
+        </Link>
+      </div>
+    )
+  }
 
   const busy = status.state === 'downloading' || status.state === 'loading'
 

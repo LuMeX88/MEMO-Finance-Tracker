@@ -19,10 +19,11 @@ RECEIPTS_DIR = Path(os.getenv("RECEIPTS_DIR", "data/receipts"))
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 MAX_SIZE_MB = 10
 
-# Upper bound (seconds) for the optional on-device AI cleanup. On weak add-on
-# hardware the small LLM can take a long time; when it exceeds this budget we
-# return the OCR-only result instead of blocking until the client times out.
-AI_FIELD_TIMEOUT = float(os.getenv("RECEIPT_AI_TIMEOUT", "20"))
+# Upper bound (seconds) for the optional on-device AI step. The vision model can
+# be slow on weak add-on hardware (few CPU cores, no AVX2), so when it exceeds
+# this budget we return the fast Tesseract OCR result instead of blocking until
+# the client times out. Tunable via the RECEIPT_AI_TIMEOUT env var.
+AI_FIELD_TIMEOUT = float(os.getenv("RECEIPT_AI_TIMEOUT", "60"))
 
 
 @router.post("/scan")
@@ -38,41 +39,41 @@ async def scan_receipt(file: UploadFile = File(...)):
 
     result = await parse_receipt(image_bytes)
 
-    # AI cleanup fallback: only when OCR succeeded but the regex heuristics left
-    # gaps and the local model is ready. Fills missing fields without overriding
-    # confident regex matches. Skipped entirely when AI is disabled/unavailable.
+    # When the local AI is enabled, read the receipt *image* directly with the
+    # on-device vision model (Qwen2.5-VL). It sees the actual photo, so it is far
+    # more accurate than the Tesseract OCR + regex baseline and its values take
+    # precedence. Tesseract still runs first as a fast fallback in case the model
+    # is slow or unavailable; on weak hardware the vision step is time-boxed
+    # (RECEIPT_AI_TIMEOUT) and we then simply return the OCR-only result.
     result.setdefault("used_ai", False)
-    if result.get("ocr_available") and ai_service.ready and result.get("raw_text"):
-        low_confidence = not (
-            result.get("amount_found")
-            and result.get("date_found")
-            and result.get("recipient_found")
-        )
-        if low_confidence:
-            ai_fields = None
-            try:
-                ai_fields = await asyncio.wait_for(
-                    asyncio.to_thread(
-                        ai_service.extract_receipt_fields, result["raw_text"]
-                    ),
-                    timeout=AI_FIELD_TIMEOUT,
-                )
-            except asyncio.TimeoutError:
-                # Slow hardware: fall back to the regex-only result.
-                result["ai_timed_out"] = True
-            if ai_fields:
-                if result.get("amount") is None and ai_fields.get("amount") is not None:
-                    result["amount"] = ai_fields["amount"]
-                    result["amount_found"] = True
-                    result["used_ai"] = True
-                if not result.get("date") and ai_fields.get("date"):
-                    result["date"] = ai_fields["date"]
-                    result["date_found"] = True
-                    result["used_ai"] = True
-                if not result.get("merchant") and ai_fields.get("recipient"):
-                    result["merchant"] = ai_fields["recipient"]
-                    result["recipient_found"] = True
-                    result["used_ai"] = True
+    if ai_service.ready:
+        ai_fields = None
+        try:
+            ai_fields = await asyncio.wait_for(
+                asyncio.to_thread(
+                    ai_service.extract_receipt_from_image, image_bytes
+                ),
+                timeout=AI_FIELD_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            # Slow hardware: fall back to the regex/OCR-only result.
+            result["ai_timed_out"] = True
+        if ai_fields:
+            if ai_fields.get("amount") is not None:
+                result["amount"] = ai_fields["amount"]
+                result["amount_found"] = True
+                result["used_ai"] = True
+            if ai_fields.get("date"):
+                result["date"] = ai_fields["date"]
+                result["date_found"] = True
+                result["used_ai"] = True
+            if ai_fields.get("recipient"):
+                result["merchant"] = ai_fields["recipient"]
+                result["recipient_found"] = True
+                result["used_ai"] = True
+            # The vision model can succeed even when Tesseract is unavailable.
+            if result.get("used_ai"):
+                result["ocr_available"] = True
 
     return result
 

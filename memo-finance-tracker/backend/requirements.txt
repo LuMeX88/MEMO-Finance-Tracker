@@ -14,7 +14,11 @@ Pillow>=10.0.0
 # ABI, so pin it to the last release built against NumPy 1.x.
 numpy>=1.26.0,<2
 opencv-python-headless==4.9.0.80
-llama-cpp-python==0.3.4
+# Qwen2.5-VL is a vision model: it needs the modern multimodal (mtmd) stack and
+# the Qwen25VLChatHandler, which only exist in newer llama-cpp-python than the
+# old 0.3.4. Stay on the 0.3.x line for the NumPy 1.x / CPU-baseline reasons
+# above; it is built from source in the Dockerfile so it adapts to the host CPU.
+llama-cpp-python>=0.3.8,<0.4
 rapidfuzz>=3.0.0
 python-multipart>=0.0.9
 paho-mqtt>=2.0.0

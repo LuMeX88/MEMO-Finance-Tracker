@@ -16,7 +16,7 @@ automations.
 &nbsp;
 [![Home Assistant Add-on](https://img.shields.io/badge/Home%20Assistant-Add--on-41BDF5?logo=home-assistant&logoColor=white)](https://www.home-assistant.io/)
 &nbsp;
-![Version](https://img.shields.io/badge/version-1.2.2-success.svg)
+![Version](https://img.shields.io/badge/version-1.4.0-success.svg)
 &nbsp;
 ![Local & private](https://img.shields.io/badge/100%25-local%20%26%20private-success.svg)
 
@@ -80,10 +80,12 @@ Most finance apps live in the cloud, share your data, and cost a monthly fee. ME
 - **📷 Receipt Scanning (OCR)** – Capture a receipt with your **camera** or pick an
   existing **image file**. Local Tesseract + OpenCV pre-processing auto-fills
   amount, date and recipient as a suggestion.
-- **🧠 Embedded Local AI** *(optional)* – A tiny on-device model (Qwen2.5-0.5B,
-  ~400 MB) runs **inside the add-on** – no Ollama, no cloud. It auto-categorizes
-  new transactions, cleans up noisy OCR text and writes a short monthly insight.
-  **Toggle it on/off right from Settings.**
+- **🧠 Embedded Local AI** *(optional, off by default)* – An on-device **vision**
+  model (Qwen2.5-VL-3B) runs **inside the add-on** – no Ollama, no cloud. It reads
+  the **amount, date and merchant straight from a receipt photo**, auto-categorizes
+  new transactions and writes a short monthly insight. **Enable it from Settings**
+  when you want it – a popup shows the system requirements first, and the ~2.8 GB
+  model is then downloaded **on demand** with a live **progress bar**.
 - **🧪 Demo data** – One-click **load/remove** of realistic sample data so you can
   explore every feature, removed again without touching data you created.
 - **💾 Backup & Restore** – Download all your data as JSON and restore it again.
@@ -134,7 +136,7 @@ The add-on exposes the following options:
 
 | Option | Default | Description |
 |---|---|---|
-| `ai_enabled` | `true` | Enable the embedded local AI (auto-categorization, OCR cleanup, monthly insight). Set to `false` to disable it and skip the one-time model download. |
+| `ai_enabled` | `false` | Enable the embedded local **vision** AI (receipt reading, auto-categorization, monthly insight). **Off by default** — enabling it triggers a one-time ~2.8 GB model download (shown with a progress bar in **Settings → AI (local)**) and needs ~4 GB free RAM. Can also be toggled in **Settings**. |
 | `mqtt_host` | `core-mosquitto` | Hostname of your MQTT broker. Use `core-mosquitto` for the official Mosquitto add-on. |
 | `mqtt_port` | `1883` | MQTT broker port. |
 | `mqtt_username` | – | MQTT username (a Home Assistant / Mosquitto user). |
@@ -165,17 +167,31 @@ These can be used directly in dashboards, history graphs and automations (e.g. "
 
 ## 🧠 Local AI (optional, 100% on-device)
 
-MEMO ships with a small embedded language model so smart features work **without any cloud service or separate Ollama container**:
+MEMO can run a small embedded **vision** language model so smart features work **without any cloud service or separate Ollama container**. It is **off by default** — turn it on in the add-on configuration or via **Settings → AI (local)** (a popup shows the system requirements first).
 
-- **Model:** Qwen2.5-0.5B-Instruct (GGUF, Q4_K_M, ~400 MB) running via `llama.cpp` on CPU.
-- **First start:** the model is downloaded once into the persistent `/data/models` volume. This is the **only** time MEMO touches the network for AI; all inference happens locally afterwards. The download runs in the background and never blocks the app.
-- **What it does:**
+- **Model:** Qwen2.5-VL-3B-Instruct (GGUF, Q4_K_M, ~1.9 GB) plus its vision encoder / mmproj (~850 MB), running via `llama.cpp` on CPU.
+- **First enable:** the model is downloaded **on demand** — only the moment you switch the AI on — into the persistent `/data/models` volume, with a live **progress bar** in **Settings → AI (local)**. This keeps the initial add-on install fast and makes the AI a deliberate choice. This is the **only** time MEMO touches the network for AI; all inference happens locally afterwards. The download runs in the background and never blocks the app.
+- **What it does (the AI features):**
+  - **Receipt scan (OCR)** – reads the **amount, date and merchant directly from a receipt photo** with the vision model. Far more accurate than plain text OCR.
   - **Auto-categorization** – when you add a transaction without picking a category, the model suggests the best-matching one (falling back to a default if unsure).
-  - **OCR cleanup** – when receipt scanning is unsure about a field, the model helps recover the amount, date or merchant from the raw text.
   - **Monthly insight** – an "AI Insight" card on the dashboard summarizes the last 30 days in two or three sentences with one saving tip.
+- **Without AI:** receipt scanning still works using the lightweight **Tesseract OCR + regex** fallback (no big download, fast even on weak hardware); categorization falls back to a default and the insight card simply invites you to enable AI.
 - **Disable it:** set `ai_enabled: false` in the add-on configuration, or use the **AI (local)** toggle under **Settings**. Every AI feature then degrades gracefully and the rest of the app keeps working.
 
-> On low-power hardware (e.g. a Raspberry Pi) responses can take a few seconds. If you don't want the model at all, keep `ai_enabled` off.
+---
+
+## ⚙️ System requirements for the AI features (local)
+
+The on-device AI is optional and **off by default**. To turn it on, your Home Assistant host should meet roughly these requirements:
+
+| Resource | Recommended | Notes |
+|---|---|---|
+| **Free RAM** | **~4 GB** free for MEMO | The 3B vision model needs ~3.5 GB resident while loaded. |
+| **CPU** | 64-bit, modern (**AVX2**) | Runs CPU-only. On a Proxmox VM set the CPU type to **host** so AVX2 is available — otherwise inference is much slower (or the model may fail to load). |
+| **Disk** | **~3 GB** free in `/data` | One-time download (model ~1.9 GB + vision encoder ~850 MB), stored in `/data/models`. |
+| **Network** | once, for the download | Only the first-time model download; all inference is then 100% local / offline. |
+
+> ⏱️ **It can be slow.** Depending on your hardware, the **first model load** and **every AI action** can take noticeably longer — on weak CPUs (few cores, no AVX2) up to **a minute per receipt**. If the receipt-scan AI step exceeds its time budget, MEMO automatically falls back to the fast Tesseract OCR result. If your hardware is limited, simply keep the AI features **off**.
 
 ---
 
@@ -204,8 +220,8 @@ Open any project to plan and cost out larger goals (a renovation, a trip, a buil
 | Frontend | React + TypeScript + Vite + Tailwind CSS |
 | Backend | FastAPI (serves both the REST API and the built frontend) |
 | Database | SQLite (local, in `/data`) |
-| OCR | Tesseract via pytesseract + OpenCV pre-processing + Pillow |
-| Local AI | llama.cpp (`llama-cpp-python`) + Qwen2.5-0.5B-Instruct GGUF |
+| OCR (fallback) | Tesseract via pytesseract + OpenCV pre-processing + Pillow |
+| Local AI (optional) | llama.cpp (`llama-cpp-python`) + Qwen2.5-VL-3B-Instruct GGUF (vision) |
 | Pattern Matching | rapidfuzz |
 | HA Integration | MQTT Discovery (paho-mqtt) + Ingress |
 | Auth | Home Assistant (via Ingress) |

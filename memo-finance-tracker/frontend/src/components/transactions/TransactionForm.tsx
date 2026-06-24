@@ -8,6 +8,7 @@ import {
   createTransaction,
   updateTransaction,
   scanReceipt,
+  getAiStatus,
 } from '@/lib/api'
 import { useUIStore } from '@/store/useUIStore'
 import Input from '@/components/ui/Input'
@@ -163,6 +164,11 @@ export default function TransactionForm({
     queryFn: getProjects,
   })
 
+  const { data: aiStatus } = useQuery({
+    queryKey: ['ai-status'],
+    queryFn: getAiStatus,
+  })
+
   const mutation = useMutation({
     mutationFn: (
       data: Omit<Transaction, 'id' | 'created_at' | 'category' | 'project'>,
@@ -257,6 +263,13 @@ export default function TransactionForm({
           {t('action.chooseFile')}
         </button>
       </div>
+
+      {/* Nudge: receipt recognition is much better with the (opt-in) local AI. */}
+      {aiStatus && !aiStatus.enabled && (
+        <p className="text-xs text-gray-400 dark:text-gray-500 text-right">
+          {t('ai.scanHint')}
+        </p>
+      )}
 
       {/* OCR banners */}
       {ocrBanner === 'success' && (

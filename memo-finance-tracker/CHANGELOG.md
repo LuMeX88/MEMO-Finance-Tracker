@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.4.0 - 2026-06-24
+
+- **New – Vision AI for receipt scanning:** the optional on-device AI is now a
+  small **vision** model (Qwen2.5-VL-3B) that reads the **amount, date and
+  merchant straight from the receipt photo**, instead of only cleaning up noisy
+  text OCR. This is noticeably more accurate. The lightweight Tesseract OCR stays
+  as a fast fallback for when the AI is off or still loading.
+- **Changed – Local AI is now OFF by default:** the AI features are opt-in. The
+  vision model is a sizeable download and is slow on weak hardware, so MEMO no
+  longer enables it automatically. Turn it on in the add-on configuration or via
+  **Settings → AI (local)**.
+- **New – Enable-AI confirmation popup:** switching the AI on in **Settings** now
+  shows a popup listing the **AI features**, the **system requirements**
+  (~2.8 GB one-time download, ~4 GB RAM, modern AVX2 CPU) and an explicit warning
+  that — depending on your hardware — loading the model and every AI action can
+  take noticeably longer.
+- **New – Install the AI model on demand, with a progress bar:** because the AI
+  is off by default, the ~2.8 GB model is **only** downloaded the moment you
+  enable it in **Settings** — keeping the initial add-on install fast and the AI
+  a deliberate choice. While it installs, **Settings → AI (local)** now shows a
+  real **progress bar** with a live percentage.
+- **New – Helpful hints when AI is off:** the dashboard **AI Insight** card and
+  the receipt-scan view now point you to **Settings** to enable the local AI for
+  better results, instead of silently hiding the feature.
+- **Docs – System requirements:** the README and add-on docs now describe the
+  AI features and the hardware needed to run them locally.
+
 ## 1.3.0 - 2026-06-24
 
 - **New – Full English / German interface:** the language switch in **Settings**
