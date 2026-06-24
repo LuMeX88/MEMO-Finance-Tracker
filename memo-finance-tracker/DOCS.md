@@ -27,6 +27,16 @@ categorization and insights – all running 100% on your own hardware.
 - **MQTT sensors** for income, expenses, balance and transaction count.
 - **German & English**, light & dark mode.
 
+## Screenshots
+
+![Reports overview](https://raw.githubusercontent.com/LuMeX88/MEMO-Finance-Tracker/main/images/screenshot-reports.png)
+
+![Transactions](https://raw.githubusercontent.com/LuMeX88/MEMO-Finance-Tracker/main/images/screenshot-transactions.png)
+
+![Projects (Kanban / Waterfall) with activity heatmap](https://raw.githubusercontent.com/LuMeX88/MEMO-Finance-Tracker/main/images/screenshot-projects.png)
+
+![Settings with the local AI toggle](https://raw.githubusercontent.com/LuMeX88/MEMO-Finance-Tracker/main/images/screenshot-settings.png)
+
 ## Prerequisites
 
 - A working **MQTT broker** — the official **Mosquitto broker** add-on is

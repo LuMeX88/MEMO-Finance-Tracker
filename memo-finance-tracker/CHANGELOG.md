@@ -26,6 +26,9 @@
   better results, instead of silently hiding the feature.
 - **Docs – System requirements:** the README and add-on docs now describe the
   AI features and the hardware needed to run them locally.
+- **Docs – Screenshots:** the README now includes a screenshot gallery (dashboard,
+  transactions, projects, schedules, forecast, categories and settings) and the
+  add-on docs show a few key screens.
 
 ## 1.3.0 - 2026-06-24
 

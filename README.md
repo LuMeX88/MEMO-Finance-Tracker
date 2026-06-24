@@ -32,6 +32,10 @@ If MEMO makes your life easier, you can support its development:
 
 <a href="https://www.buymeacoffee.com/LuMeX88" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" height="50"></a>
 
+<br><br>
+
+<img src="images/screenshot-reports.png" alt="MEMO dashboard – reports overview with category breakdown and income/expense timeline" width="100%">
+
 </div>
 
 ---
@@ -97,7 +101,30 @@ Most finance apps live in the cloud, share your data, and cost a monthly fee. ME
 
 ---
 
-## 🚀 Installation
+## � Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="images/screenshot-transactions.png" width="100%" alt="Transactions list with type, category, project and merchant filters"><br><sub><b>Transactions</b> — filter by type, category, project, merchant & period</sub></td>
+    <td width="50%"><img src="images/screenshot-quickadd.png" width="100%" alt="Quick-add speed dial"><br><sub><b>Quick add</b> — speed dial for expense, income, receipt scan, project & category</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="images/screenshot-schedules.png" width="100%" alt="Recurring costs with a forecast chart"><br><sub><b>Recurring costs</b> — schedules with a 1–12 month forecast</sub></td>
+    <td width="50%"><img src="images/screenshot-forecast.png" width="100%" alt="Expense forecast, period comparison and CSV/PDF export"><br><sub><b>Reports & forecast</b> — period comparison, CSV/PDF export, expense forecast</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="images/screenshot-projects.png" width="100%" alt="Projects as Kanban and Waterfall with an activity heatmap"><br><sub><b>Projects</b> — Kanban / Waterfall, budget vs booked, activity heatmap</sub></td>
+    <td width="50%"><img src="images/screenshot-categories.png" width="100%" alt="Customizable categories with icons and colors"><br><sub><b>Categories</b> — fully customizable with icons & colors</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="images/screenshot-settings.png" width="100%" alt="Settings with local AI toggle, backup/restore and demo data"><br><sub><b>Settings</b> — local AI toggle, backup/restore, demo data & suggested categories</sub></td>
+    <td width="50%"></td>
+  </tr>
+</table>
+
+---
+
+## �🚀 Installation
 
 ### Option A — one-click (recommended)
 
