@@ -33,6 +33,7 @@ export interface ProjectTask {
   title: string
   description: string | null
   cost: number
+  category_id: number | null
   start_date: string | null
   end_date: string | null
   position: number
@@ -177,6 +178,7 @@ export interface MonthForecast {
   label: string
   scheduled_fixed: number
   scheduled_variable: number
+  scheduled_project: number
   variable_avg: number
   total: number
   is_past: boolean

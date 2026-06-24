@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.2 - 2026-06-24
+
+- **New – Allocate project task costs to a category:** each project task can now
+  be assigned a **category**. When the task is booked, its mirrored expense
+  booking is filed under that category instead of always landing in *Other* — so
+  the **Expenses by Category** report finally splits project costs correctly.
+  Re-categorising a task re-files its booking; leaving it empty keeps the old
+  *Other* default. Editing the booking's category by hand is still respected.
+- **New – Estimated completion date for Kanban tasks:** Kanban task cards now
+  have an **estimated completion date**, shown on the card while the task is
+  still a forecast.
+- **New – Projects appear in the Ausgaben-Forecast:** planned (not-yet-booked)
+  task costs are now projected into the **expense forecast** in the month of
+  their estimated completion date, with a dedicated *Projekte (geplant)* row in
+  the next-month breakdown. Overdue-but-unbooked costs roll into the current
+  month so they are never lost. (Tasks without a date are not time-forecast.)
+- **Fix:** one of the icons in the icon picker was broken and showed a blank/
+  replacement glyph; it now renders correctly.
+
 ## 1.2.1 - 2026-06-24
 
 - **Fix – Project costs now flow into the rest of the app:** the cost of a

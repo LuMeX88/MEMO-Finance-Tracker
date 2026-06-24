@@ -208,6 +208,7 @@ export type TaskInput = {
   title: string
   description?: string | null
   cost?: number
+  category_id?: number | null
   column_id?: number | null
   start_date?: string | null
   end_date?: string | null

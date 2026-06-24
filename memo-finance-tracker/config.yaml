@@ -1,5 +1,5 @@
 name: "MEMO – Finance Tracker"
-version: "1.2.1"
+version: "1.2.2"
 slug: "memo_finance_tracker"
 description: "Local-first personal finance tracker with Home Assistant ingress and MQTT sensors"
 url: "https://github.com/LuMeX88/MEMO-Finance-Tracker"

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.schedule import Schedule, IntervalType
 from app.models.transaction import Transaction, TransactionType
+from app.models.project import Project, ProjectColumn, ProjectTask
 
 router = APIRouter(prefix="/forecast", tags=["forecast"])
 
@@ -17,6 +18,7 @@ class MonthForecast(BaseModel):
     label: str          # "Jul 2026"
     scheduled_fixed: float
     scheduled_variable: float
+    scheduled_project: float   # planned (not-yet-booked) project task costs
     variable_avg: float
     total: float
     is_past: bool       # True = actuals available
@@ -84,6 +86,39 @@ def get_forecast(months: int = 6, db: Session = Depends(get_db)):
     # ── Active schedules ──
     schedules = db.query(Schedule).filter(Schedule.active == True).all()
 
+    # ── Project task forecasts ──
+    # Un-booked task costs (those that have NOT yet become a real transaction)
+    # are placed into the month of their estimated completion date (end_date).
+    # Tasks without a date can't be time-forecast and are ignored (this is why
+    # the Kanban board now exposes an estimated-done date). Overdue-but-unbooked
+    # costs roll forward into the current month so they aren't lost.
+    project_modes = {p.id: p.mode for p in db.query(Project).all()}
+    done_col_ids = {
+        c.id
+        for c in db.query(ProjectColumn)
+        .filter(ProjectColumn.is_done == True)
+        .all()
+    }
+    current_ym = (today.year, today.month)
+    project_forecast_by_month: dict[tuple, float] = {}
+    forecast_tasks = (
+        db.query(ProjectTask)
+        .filter(ProjectTask.cost > 0, ProjectTask.end_date.isnot(None))
+        .all()
+    )
+    for tk in forecast_tasks:
+        mode = project_modes.get(tk.project_id)
+        if mode == "waterfall":
+            booked = tk.end_date < today
+        else:
+            booked = tk.column_id in done_col_ids
+        if booked:
+            continue  # already mirrored into a real transaction
+        bucket = max((tk.end_date.year, tk.end_date.month), current_ym)
+        project_forecast_by_month[bucket] = (
+            project_forecast_by_month.get(bucket, 0.0) + tk.cost
+        )
+
     # ── Build month-by-month forecast ──
     result_months: List[MonthForecast] = []
     y, m = today.year, today.month
@@ -105,16 +140,31 @@ def get_forecast(months: int = 6, db: Session = Depends(get_db)):
             else:
                 fixed_total += amt * occ
 
-        if is_past or is_current:
+        proj_fc = project_forecast_by_month.get((y, m), 0.0)
+
+        if is_past:
             actual = hist_totals.get((y, m), 0)
             result_months.append(MonthForecast(
                 year=y, month=m,
                 label=_month_label(y, m),
                 scheduled_fixed=fixed_total,
                 scheduled_variable=variable_total,
+                scheduled_project=0.0,
                 variable_avg=actual,
-                total=actual if is_past else fixed_total + variable_total + variable_avg,
-                is_past=is_past,
+                total=actual,
+                is_past=True,
+            ))
+        elif is_current:
+            actual = hist_totals.get((y, m), 0)
+            result_months.append(MonthForecast(
+                year=y, month=m,
+                label=_month_label(y, m),
+                scheduled_fixed=fixed_total,
+                scheduled_variable=variable_total,
+                scheduled_project=proj_fc,
+                variable_avg=actual,
+                total=fixed_total + variable_total + variable_avg + proj_fc,
+                is_past=False,
             ))
         else:
             result_months.append(MonthForecast(
@@ -122,8 +172,9 @@ def get_forecast(months: int = 6, db: Session = Depends(get_db)):
                 label=_month_label(y, m),
                 scheduled_fixed=fixed_total,
                 scheduled_variable=variable_total,
+                scheduled_project=proj_fc,
                 variable_avg=variable_avg,
-                total=fixed_total + variable_total + variable_avg,
+                total=fixed_total + variable_total + variable_avg + proj_fc,
                 is_past=False,
             ))
 

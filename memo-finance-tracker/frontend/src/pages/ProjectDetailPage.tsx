@@ -23,9 +23,10 @@ import {
   createProjectTask,
   updateProjectTask,
   deleteProjectTask,
+  getCategories,
   type TaskInput,
 } from '@/lib/api'
-import type { ProjectBoard, ProjectColumn, ProjectTask } from '@/types'
+import type { ProjectBoard, ProjectColumn, ProjectTask, Category } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useSettingsStore } from '@/store/useSettingsStore'
 import { useUIStore } from '@/store/useUIStore'
@@ -146,6 +147,13 @@ function TaskCard({
         <CostBadge booked={task.booked} />
       </div>
 
+      {!task.booked && task.end_date && (
+        <div className="flex items-center gap-1 mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+          <Calendar size={12} />
+          <span>{formatDate(task.end_date)}</span>
+        </div>
+      )}
+
       {/* Move between columns (touch-friendly fallback for drag & drop) */}
       <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/60">
         <button
@@ -175,6 +183,7 @@ type TaskFormState = {
   title: string
   description: string
   cost: string
+  category_id: string
   column_id: string
   start_date: string
   end_date: string
@@ -185,6 +194,7 @@ function TaskModal({
   onClose,
   mode,
   columns,
+  categories,
   editing,
   defaultColumnId,
   onSubmit,
@@ -194,6 +204,7 @@ function TaskModal({
   onClose: () => void
   mode: 'kanban' | 'waterfall'
   columns: ProjectColumn[]
+  categories: Category[]
   editing: ProjectTask | null
   defaultColumnId: number | null
   onSubmit: (data: TaskInput, taskId?: number) => void
@@ -204,6 +215,7 @@ function TaskModal({
     title: '',
     description: '',
     cost: '',
+    category_id: '',
     column_id: '',
     start_date: '',
     end_date: '',
@@ -215,6 +227,8 @@ function TaskModal({
         title: editing?.title ?? '',
         description: editing?.description ?? '',
         cost: editing?.cost != null ? String(editing.cost) : '',
+        category_id:
+          editing?.category_id != null ? String(editing.category_id) : '',
         column_id: String(
           editing?.column_id ?? defaultColumnId ?? columns[0]?.id ?? '',
         ),
@@ -230,9 +244,13 @@ function TaskModal({
       title: form.title,
       description: form.description || null,
       cost: form.cost ? parseFloat(form.cost) : 0,
+      category_id: form.category_id ? parseInt(form.category_id) : null,
     }
     if (mode === 'kanban') {
       payload.column_id = form.column_id ? parseInt(form.column_id) : null
+      // The end date doubles as the Kanban "estimated completion" used by the
+      // expense forecast; start date stays empty for Kanban tasks.
+      payload.end_date = form.end_date || null
     } else {
       payload.start_date = form.start_date || null
       payload.end_date = form.end_date || null
@@ -271,20 +289,45 @@ function TaskModal({
           placeholder="0.00"
         />
 
+        <Select
+          label={t('projects.category')}
+          value={form.category_id}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, category_id: e.target.value }))
+          }
+        >
+          <option value="">{t('projects.noCategory')}</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.icon ? `${c.icon} ${c.name}` : c.name}
+            </option>
+          ))}
+        </Select>
+
         {mode === 'kanban' ? (
-          <Select
-            label={t('projects.column')}
-            value={form.column_id}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, column_id: e.target.value }))
-            }
-          >
-            {columns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
+          <>
+            <Select
+              label={t('projects.column')}
+              value={form.column_id}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, column_id: e.target.value }))
+              }
+            >
+              {columns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+            <Input
+              label={t('projects.estimatedDone')}
+              type="date"
+              value={form.end_date}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, end_date: e.target.value }))
+              }
+            />
+          </>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             <Input
@@ -449,6 +492,11 @@ export default function ProjectDetailPage() {
     queryKey: boardKey,
     queryFn: () => getProjectBoard(projectId),
     enabled: Number.isFinite(projectId),
+  })
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: getCategories,
   })
 
   // Booking a task creates/updates/removes a real expense transaction, so a
@@ -864,6 +912,7 @@ export default function ProjectDetailPage() {
         }
         mode={project.mode}
         columns={columns}
+        categories={categories}
         editing={taskModal.editing}
         defaultColumnId={taskModal.columnId}
         onSubmit={handleTaskSubmit}

@@ -105,7 +105,7 @@ const ICONS: [string, string, string][] = [
   ['📋', 'liste aufgaben', 'list tasks'],
   ['📐', 'büro material', 'office supplies'],
   ['🔬', 'wissenschaft forschung', 'science research'],
-  ['�️', 'computer software desktop', 'computer software desktop'],
+  ['🖥️', 'computer software desktop', 'computer software desktop'],
   ['🖨️', 'drucker büro', 'printer office'],
   // Family & Social
   ['👨‍👩‍👧‍👦', 'familie', 'family'],

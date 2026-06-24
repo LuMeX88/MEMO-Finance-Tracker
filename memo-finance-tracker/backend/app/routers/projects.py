@@ -116,6 +116,7 @@ def _sync_task_transaction(
     columns_by_id: Dict[int, ProjectColumn],
     today: date,
     default_category_id: Optional[int],
+    valid_category_ids: set,
 ) -> None:
     """Create / update / remove the expense transaction mirroring a booked task."""
     booked = _task_is_booked(task, project, columns_by_id, today)
@@ -133,6 +134,12 @@ def _sync_task_transaction(
 
     should_book = booked and task.cost is not None and task.cost > 0
 
+    # The task's category is only usable if it still exists (a category the task
+    # referenced may have been deleted); otherwise fall back to the default.
+    task_category_id = (
+        task.category_id if task.category_id in valid_category_ids else None
+    )
+
     if should_book:
         tx_date = (
             task.end_date
@@ -140,13 +147,17 @@ def _sync_task_transaction(
             else today
         )
         recipient = (task.title or "Task").strip()[:200] or "Task"
+        # File the booking under the task's category if it has one, otherwise the
+        # default ("Other"). This is what makes project costs show up under the
+        # right category in the reports instead of all landing in "Other".
+        category_id = task_category_id or default_category_id
         if tx is None:
-            if default_category_id is None:
+            if category_id is None:
                 return  # no categories exist yet; nothing we can attach to
             tx = Transaction(
                 date=tx_date,
                 recipient=recipient,
-                category_id=default_category_id,
+                category_id=category_id,
                 amount=float(task.cost),
                 type=TransactionType.expense,
                 project_id=project.id,
@@ -156,12 +167,16 @@ def _sync_task_transaction(
             db.flush()  # assign tx.id
             task.transaction_id = tx.id
         else:
-            # Keep amount / label / project in sync. Category and (for Kanban)
-            # the date are left untouched so a user can re-file the booking.
+            # Keep amount / label / project in sync. The booking date for Kanban
+            # is left untouched (user may re-date it). The category follows the
+            # task's category when set; if the task has no category we leave the
+            # existing one so a manual re-filing on the booking is respected.
             tx.amount = float(task.cost)
             tx.recipient = recipient
             tx.project_id = project.id
             tx.type = TransactionType.expense
+            if task_category_id is not None:
+                tx.category_id = task_category_id
             if project.mode == "waterfall" and task.end_date is not None:
                 tx.date = task.end_date
     else:
@@ -183,9 +198,16 @@ def _reconcile_project(db: Session, project: Project) -> None:
     )
     today = date.today()
     default_category_id = _default_category_id(db)
+    valid_category_ids = {cid for (cid,) in db.query(Category.id).all()}
     for task in tasks:
         _sync_task_transaction(
-            db, task, project, columns_by_id, today, default_category_id
+            db,
+            task,
+            project,
+            columns_by_id,
+            today,
+            default_category_id,
+            valid_category_ids,
         )
     db.commit()
 
@@ -495,12 +517,20 @@ def create_task(
         )
         column_id = first.id if first else None
 
+    if task.category_id is not None:
+        cat = (
+            db.query(Category).filter(Category.id == task.category_id).first()
+        )
+        if not cat:
+            raise HTTPException(status_code=400, detail="Invalid category")
+
     db_task = ProjectTask(
         project_id=project_id,
         column_id=column_id,
         title=task.title,
         description=task.description,
         cost=task.cost,
+        category_id=task.category_id,
         start_date=task.start_date,
         end_date=task.end_date,
         position=_next_task_position(db, project_id, column_id),
@@ -540,6 +570,14 @@ def update_task(
         raise HTTPException(status_code=404, detail="Task not found")
 
     data = task.model_dump(exclude_unset=True)
+
+    # Validate a re-categorisation before applying it.
+    if data.get("category_id") is not None:
+        cat = (
+            db.query(Category).filter(Category.id == data["category_id"]).first()
+        )
+        if not cat:
+            raise HTTPException(status_code=400, detail="Invalid category")
 
     # Moving to another column: validate it and append to the end of that column.
     if "column_id" in data and data["column_id"] != db_task.column_id:

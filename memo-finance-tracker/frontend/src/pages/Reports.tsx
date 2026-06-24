@@ -613,6 +613,12 @@ export default function Reports() {
                           {formatCurrency(next.variable_avg, currency)}
                         </td>
                       </tr>
+                      <tr>
+                        <td className="py-2 text-gray-500 dark:text-gray-400">Projekte (geplant)</td>
+                        <td className="py-2 text-right font-medium text-gray-900 dark:text-white tabular-nums">
+                          {formatCurrency(next.scheduled_project, currency)}
+                        </td>
+                      </tr>
                       <tr className="font-semibold">
                         <td className="py-2 text-gray-900 dark:text-white">Total Prognose</td>
                         <td className="py-2 text-right text-blue-600 dark:text-blue-400 tabular-nums">

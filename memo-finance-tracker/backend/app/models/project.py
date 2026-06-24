@@ -85,7 +85,15 @@ class ProjectTask(Base):
     title = Column(String, nullable=False)
     description = Column(String, nullable=True)
     cost = Column(Float, nullable=False, default=0.0)
+    # Optional category for the cost. When the task is booked, the auto-created
+    # expense transaction is filed under this category (falls back to a default
+    # like "Other" when unset) so project costs show up correctly in reports.
+    category_id = Column(
+        Integer, ForeignKey("categories.id"), nullable=True, index=True
+    )
     start_date = Column(Date, nullable=True)
+    # For Kanban this doubles as the *estimated completion date* used to place
+    # the (not-yet-booked) cost into the time-based expense forecast.
     end_date = Column(Date, nullable=True)
     position = Column(Integer, nullable=False, default=0)
     # When a task's cost is "booked" it is mirrored into a real expense

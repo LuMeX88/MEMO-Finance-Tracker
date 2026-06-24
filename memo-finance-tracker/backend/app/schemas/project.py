@@ -64,6 +64,7 @@ class ProjectTaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
     cost: float = 0.0
+    category_id: Optional[int] = None
     column_id: Optional[int] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
@@ -73,6 +74,7 @@ class ProjectTaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     cost: Optional[float] = None
+    category_id: Optional[int] = None
     column_id: Optional[int] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
@@ -88,6 +90,7 @@ class ProjectTaskResponse(BaseModel):
     title: str
     description: Optional[str] = None
     cost: float
+    category_id: Optional[int] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     position: int

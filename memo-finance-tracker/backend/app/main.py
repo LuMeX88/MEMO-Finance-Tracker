@@ -104,6 +104,10 @@ def _run_light_migrations() -> None:
             statements.append(
                 "ALTER TABLE project_tasks ADD COLUMN transaction_id INTEGER"
             )
+        if "category_id" not in task_cols:
+            statements.append(
+                "ALTER TABLE project_tasks ADD COLUMN category_id INTEGER"
+            )
     if not statements:
         return
     with engine.begin() as conn:
