@@ -128,6 +128,13 @@ app. They are stamped from the build, so they always match the installed release
   hundred MB of free space in `/data`. Check the add-on log for `[MEMO AI]`
   messages, or set `ai_enabled: false` to disable it.
 
+## Tested environments
+
+The UI is actively tested on **Google Chrome** and **Microsoft Edge** (desktop)
+and the **Home Assistant Companion app on Android**. Other modern browsers
+should work but are not regularly tested. In-app receipt capture requires the
+Companion app to have camera permission for its webview.
+
 ## Privacy
 
 local. private. yours. MEMO has no accounts, no telemetry and no cloud sync.

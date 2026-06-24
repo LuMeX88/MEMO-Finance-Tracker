@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Receipt, Filter } from 'lucide-react'
 import {
@@ -71,6 +71,7 @@ function shiftAnchor(period: Period, anchorStr: string, dir: 1 | -1): string {
 export default function Transactions() {
   const t = useT()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const addToast = useUIStore((s) => s.addToast)
   const openQuickAdd = useUIStore((s) => s.openQuickAdd)
 
@@ -99,7 +100,18 @@ export default function Transactions() {
   const [page, setPage] = useState(0)
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null)
+  const [projectLinkedTx, setProjectLinkedTx] = useState<Transaction | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(hasInitialFilter)
+
+  // Project-task mirrors are kept in sync with the project, so editing them here
+  // would be silently reverted — intercept and point the user to the project.
+  function handleEdit(tx: Transaction) {
+    if (tx.is_project_task) {
+      setProjectLinkedTx(tx)
+    } else {
+      setEditingTransaction(tx)
+    }
+  }
 
   // Debounce the recipient/merchant search so typing doesn't refetch every key.
   useEffect(() => {
@@ -388,7 +400,7 @@ export default function Transactions() {
       ) : (
         <TransactionList
           transactions={transactions}
-          onEdit={setEditingTransaction}
+          onEdit={handleEdit}
           onDelete={(id) => deleteMutation.mutate(id)}
         />
       )}
@@ -432,6 +444,35 @@ export default function Transactions() {
           />
         )}
       </Modal>
-    </div>
+      {/* ── Project-linked booking notice ─────────────────────────────── */}
+      <Modal
+        open={projectLinkedTx !== null}
+        onClose={() => setProjectLinkedTx(null)}
+        title={t('transaction.linkedTitle')}
+      >
+        {projectLinkedTx && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {t('transaction.linkedDesc')}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="secondary" onClick={() => setProjectLinkedTx(null)}>
+                {t('action.cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                disabled={projectLinkedTx.project_id == null}
+                onClick={() => {
+                  const pid = projectLinkedTx.project_id
+                  setProjectLinkedTx(null)
+                  if (pid != null) navigate(`/projects/${pid}`)
+                }}
+              >
+                {t('transaction.goToProject')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>    </div>
   )
 }

@@ -13,6 +13,7 @@ import { useUIStore } from '@/store/useUIStore'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Button from '@/components/ui/Button'
+import CameraCapture from '@/components/transactions/CameraCapture'
 import { cn } from '@/lib/utils'
 import type { Transaction, OcrResult } from '@/types'
 
@@ -74,19 +75,41 @@ export default function TransactionForm({
   const [ocrError, setOcrError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
+
+  // The live getUserMedia camera is only exposed in a secure context. When it
+  // is missing (e.g. some HA Companion webviews) we fall back to the native
+  // capture input, which at least opens the gallery/system camera.
+  const cameraSupported =
+    typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
+
+  function openCamera() {
+    if (cameraSupported) setCameraOpen(true)
+    else cameraInputRef.current?.click()
+  }
 
   // Auto-trigger the camera when opened via the "Beleg scannen" SpeedDial action
   useEffect(() => {
     if (autoScan) {
-      const timer = setTimeout(() => cameraInputRef.current?.click(), 150)
+      const timer = setTimeout(() => openCamera(), 150)
       return () => clearTimeout(timer)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoScan])
 
-  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
+    void scanFile(file)
+  }
+
+  function handleCapturedFile(file: File) {
+    setCameraOpen(false)
+    void scanFile(file)
+  }
+
+  async function scanFile(file: File) {
     setScanning(true)
     setOcrBanner(null)
     setOcrError(null)
@@ -121,9 +144,9 @@ export default function TransactionForm({
       setOcrFields(detected)
       setOcrBanner('success')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Scan fehlgeschlagen'
+      const msg = err instanceof Error ? err.message : t('receipt.scanFailed')
       const isAbort = err instanceof DOMException && err.name === 'AbortError'
-      setOcrError(isAbort ? 'Zeitüberschreitung – Beleg konnte nicht gescannt werden.' : msg)
+      setOcrError(isAbort ? t('receipt.timeout') : msg)
       setOcrBanner('error')
     } finally {
       setScanning(false)
@@ -164,12 +187,12 @@ export default function TransactionForm({
 
   function validate(): boolean {
     const next: FormErrors = {}
-    if (!date) next.date = 'Datum erforderlich'
-    if (!recipient.trim()) next.recipient = 'Empfänger erforderlich'
+    if (!date) next.date = t('transaction.errDate')
+    if (!recipient.trim()) next.recipient = t('transaction.errRecipient')
     const parsed = parseFloat(amount)
     if (!amount || isNaN(parsed) || parsed <= 0)
-      next.amount = 'Gültiger Betrag erforderlich'
-    if (!categoryId) next.category_id = 'Kategorie erforderlich'
+      next.amount = t('transaction.errAmount')
+    if (!categoryId) next.category_id = t('transaction.errCategory')
     setErrors(next)
     return Object.keys(next).length === 0
   }
@@ -192,6 +215,11 @@ export default function TransactionForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      <CameraCapture
+        open={cameraOpen}
+        onCapture={handleCapturedFile}
+        onClose={() => setCameraOpen(false)}
+      />
       {/* Receipt scan — separate camera + file inputs so both work reliably,
           including inside the Home Assistant Companion app. */}
       <input
@@ -213,7 +241,7 @@ export default function TransactionForm({
         <button
           type="button"
           disabled={scanning}
-          onClick={() => cameraInputRef.current?.click()}
+          onClick={openCamera}
           className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors disabled:opacity-50"
         >
           {scanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
@@ -233,17 +261,17 @@ export default function TransactionForm({
       {/* OCR banners */}
       {ocrBanner === 'success' && (
         <div className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 px-3 py-2 text-xs text-green-700 dark:text-green-300">
-          ✓ Beleg erkannt – bitte Felder prüfen
+          ✓ {t('receipt.scanSuccess')}
         </div>
       )}
       {ocrBanner === 'unavailable' && (
         <div className="flex items-center gap-2 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 px-3 py-2 text-xs text-orange-700 dark:text-orange-300">
-          OCR nicht verfügbar – Tesseract nicht installiert
+          {t('receipt.unavailable')}
         </div>
       )}
       {ocrBanner === 'error' && (
         <div className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 px-3 py-2 text-xs text-red-700 dark:text-red-300">
-          {ocrError ?? 'Scan fehlgeschlagen – bitte Felder manuell ausfüllen'}
+          {ocrError ?? t('receipt.scanError')}
         </div>
       )}
 
@@ -303,7 +331,7 @@ export default function TransactionForm({
       <Input
         label={t('transaction.recipient')}
         type="text"
-        placeholder="z.B. Migros"
+        placeholder={t('transaction.recipientPlaceholder')}
         value={recipient}
         onChange={(e) => { setRecipient(e.target.value); setOcrFields((s) => { const n = new Set(s); n.delete('recipient'); return n }) }}
         error={errors.recipient}
@@ -317,7 +345,7 @@ export default function TransactionForm({
         onChange={(e) => setCategoryId(e.target.value)}
         error={errors.category_id}
       >
-        <option value="">Kategorie wählen…</option>
+        <option value="">{t('transaction.categoryPlaceholder')}</option>
         {categories
           .filter((c) => !c.archived)
           .map((c) => (
@@ -362,7 +390,7 @@ export default function TransactionForm({
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
             >
-              <option value="">Keine Angabe</option>
+              <option value="">{t('transaction.paymentNone')}</option>
               {PAYMENT_METHODS.map((m) => (
                 <option key={m} value={m}>
                   {({ Bar: t('payment.cash'), Karte: t('payment.card'), TWINT: t('payment.twint'), Überweisung: t('payment.transfer'), Sonstige: t('payment.other') } as Record<string, string>)[m] ?? m}
@@ -377,7 +405,7 @@ export default function TransactionForm({
               </label>
               <textarea
                 rows={3}
-                placeholder="Optionale Notiz…"
+                placeholder={t('transaction.notePlaceholder')}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className={cn(

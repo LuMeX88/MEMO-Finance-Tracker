@@ -332,10 +332,10 @@ export default function SettingsPage() {
             }}
             className={selectClass}
           >
-            <option value="CHF">CHF – Schweizer Franken</option>
+            <option value="CHF">CHF – Schweizer Franken / Swiss Franc</option>
             <option value="EUR">EUR – Euro</option>
-            <option value="USD">USD – US-Dollar</option>
-            <option value="GBP">GBP – Britisches Pfund</option>
+            <option value="USD">USD – US-Dollar / US Dollar</option>
+            <option value="GBP">GBP – Britisches Pfund / British Pound</option>
           </select>
         </SettingRow>
 

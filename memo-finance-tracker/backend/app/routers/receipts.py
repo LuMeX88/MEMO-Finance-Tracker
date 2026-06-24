@@ -19,6 +19,11 @@ RECEIPTS_DIR = Path(os.getenv("RECEIPTS_DIR", "data/receipts"))
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 MAX_SIZE_MB = 10
 
+# Upper bound (seconds) for the optional on-device AI cleanup. On weak add-on
+# hardware the small LLM can take a long time; when it exceeds this budget we
+# return the OCR-only result instead of blocking until the client times out.
+AI_FIELD_TIMEOUT = float(os.getenv("RECEIPT_AI_TIMEOUT", "20"))
+
 
 @router.post("/scan")
 async def scan_receipt(file: UploadFile = File(...)):
@@ -44,21 +49,30 @@ async def scan_receipt(file: UploadFile = File(...)):
             and result.get("recipient_found")
         )
         if low_confidence:
-            ai_fields = await asyncio.to_thread(
-                ai_service.extract_receipt_fields, result["raw_text"]
-            )
-            if result.get("amount") is None and ai_fields.get("amount") is not None:
-                result["amount"] = ai_fields["amount"]
-                result["amount_found"] = True
-                result["used_ai"] = True
-            if not result.get("date") and ai_fields.get("date"):
-                result["date"] = ai_fields["date"]
-                result["date_found"] = True
-                result["used_ai"] = True
-            if not result.get("merchant") and ai_fields.get("recipient"):
-                result["merchant"] = ai_fields["recipient"]
-                result["recipient_found"] = True
-                result["used_ai"] = True
+            ai_fields = None
+            try:
+                ai_fields = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        ai_service.extract_receipt_fields, result["raw_text"]
+                    ),
+                    timeout=AI_FIELD_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                # Slow hardware: fall back to the regex-only result.
+                result["ai_timed_out"] = True
+            if ai_fields:
+                if result.get("amount") is None and ai_fields.get("amount") is not None:
+                    result["amount"] = ai_fields["amount"]
+                    result["amount_found"] = True
+                    result["used_ai"] = True
+                if not result.get("date") and ai_fields.get("date"):
+                    result["date"] = ai_fields["date"]
+                    result["date_found"] = True
+                    result["used_ai"] = True
+                if not result.get("merchant") and ai_fields.get("recipient"):
+                    result["merchant"] = ai_fields["recipient"]
+                    result["recipient_found"] = True
+                    result["used_ai"] = True
 
     return result
 

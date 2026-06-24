@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Briefcase } from 'lucide-react'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { useSettingsStore } from '@/store/useSettingsStore'
+import { useT } from '@/lib/i18n'
 import type { Transaction } from '@/types'
 
 interface TransactionListProps {
@@ -20,6 +21,7 @@ interface RowProps {
 const SWIPE_THRESHOLD = 60
 
 function TransactionRow({ transaction, onEdit, onDelete, currency }: RowProps) {
+  const t = useT()
   const [offsetX, setOffsetX] = useState(0)
   const [deleting, setDeleting] = useState(false)
   const [hovered, setHovered] = useState(false)
@@ -119,6 +121,12 @@ function TransactionRow({ transaction, onEdit, onDelete, currency }: RowProps) {
             <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
               {category?.name ?? '—'} · {formatDate(transaction.date)}
             </p>
+            {transaction.project_name && (
+              <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300 max-w-full">
+                <Briefcase size={10} className="shrink-0" />
+                <span className="truncate">{t('transaction.fromProject')}: {transaction.project_name}</span>
+              </span>
+            )}
           </div>
         </div>
 
@@ -139,7 +147,7 @@ function TransactionRow({ transaction, onEdit, onDelete, currency }: RowProps) {
           {/* Desktop trash icon */}
           <button
             type="button"
-            aria-label="Löschen"
+            aria-label={t('action.delete')}
             onClick={handleDeleteClick}
             className={cn(
               'p-1 rounded text-gray-300 hover:text-red-500 transition-colors hidden md:flex items-center',

@@ -3,6 +3,7 @@ from app.models.project import Project, ProjectColumn, ProjectTask
 from app.models.transaction import Transaction, TransactionType
 from app.models.schedule import Schedule, IntervalType
 from app.models.schedule_suggestion import ScheduleSuggestion, SuggestionStatus
+from app.models.settings import AppSettings
 
 __all__ = [
     "Category",
@@ -15,4 +16,5 @@ __all__ = [
     "IntervalType",
     "ScheduleSuggestion",
     "SuggestionStatus",
+    "AppSettings",
 ]

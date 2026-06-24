@@ -96,7 +96,7 @@ function ProjectModal({
           label={t('projects.name')}
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          placeholder="z.B. Renovation Küche"
+          placeholder={t('projects.namePlaceholder')}
           required
         />
 
@@ -547,8 +547,7 @@ export default function ProjectsPage() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Möchtest du dieses Projekt wirklich löschen? Diese Aktion kann nicht rückgängig
-              gemacht werden.
+              {t('projects.deleteConfirm')}
             </p>
           </div>
           <div className="flex gap-3 justify-end">

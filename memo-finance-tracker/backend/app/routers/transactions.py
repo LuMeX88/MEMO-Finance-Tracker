@@ -6,11 +6,45 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.category import Category
+from app.models.project import Project, ProjectTask
 from app.models.transaction import Transaction, TransactionType
 from app.schemas.transaction import TransactionCreate, TransactionResponse, TransactionUpdate
 from app.services.ai import ai_service
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
+
+
+def _annotate_project_origin(db: Session, transactions: List[Transaction]) -> None:
+    """Attach ``project_name`` and ``is_project_task`` to transaction rows.
+
+    ``is_project_task`` is True when the booking is the auto-managed mirror of a
+    project task (a ``ProjectTask.transaction_id`` points at it). Such bookings
+    are kept in sync with the project and must be edited there, not in the
+    bookings list, otherwise the next reconcile would overwrite manual edits.
+    """
+    rows = [tx for tx in transactions if tx is not None]
+    if not rows:
+        return
+    project_ids = {tx.project_id for tx in rows if tx.project_id is not None}
+    names: dict[int, str] = {}
+    if project_ids:
+        for pid, pname in (
+            db.query(Project.id, Project.name).filter(Project.id.in_(project_ids)).all()
+        ):
+            names[pid] = pname
+    tx_ids = [tx.id for tx in rows if tx.id is not None]
+    task_tx_ids: set[int] = set()
+    if tx_ids:
+        task_tx_ids = {
+            row[0]
+            for row in db.query(ProjectTask.transaction_id)
+            .filter(ProjectTask.transaction_id.in_(tx_ids))
+            .all()
+            if row[0] is not None
+        }
+    for tx in rows:
+        tx.project_name = names.get(tx.project_id) if tx.project_id is not None else None
+        tx.is_project_task = tx.id in task_tx_ids
 
 
 @router.get("", response_model=List[TransactionResponse])
@@ -43,7 +77,9 @@ def list_transactions(
         query = query.offset(offset)
     if limit is not None:
         query = query.limit(limit)
-    return query.all()
+    results = query.all()
+    _annotate_project_origin(db, results)
+    return results
 
 
 @router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
@@ -55,6 +91,7 @@ def create_transaction(transaction: TransactionCreate, db: Session = Depends(get
     db.add(db_transaction)
     db.commit()
     db.refresh(db_transaction)
+    _annotate_project_origin(db, [db_transaction])
     return db_transaction
 
 
@@ -86,6 +123,7 @@ def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
     db_transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    _annotate_project_origin(db, [db_transaction])
     return db_transaction
 
 
@@ -96,10 +134,24 @@ def update_transaction(
     db_transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    # Bookings that mirror a project task are managed by the project and must be
+    # edited there; allowing edits here would be silently reverted on the next
+    # project reconcile, so reject with a clear 409.
+    linked_task = (
+        db.query(ProjectTask)
+        .filter(ProjectTask.transaction_id == transaction_id)
+        .first()
+    )
+    if linked_task is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This booking belongs to a project task. Edit it in the project instead.",
+        )
     for key, value in transaction.model_dump(exclude_unset=True).items():
         setattr(db_transaction, key, value)
     db.commit()
     db.refresh(db_transaction)
+    _annotate_project_origin(db, [db_transaction])
     return db_transaction
 
 

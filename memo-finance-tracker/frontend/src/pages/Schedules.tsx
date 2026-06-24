@@ -8,7 +8,7 @@ import {
   getSchedules, createSchedule, updateSchedule, deleteSchedule, getCategories,
 } from '@/lib/api'
 import type { Schedule } from '@/types'
-import { formatCurrency, formatDate, getDaysUntil } from '@/lib/utils'
+import { formatCurrency, formatDate, getDaysUntil, localeForLanguage } from '@/lib/utils'
 import { useUIStore } from '@/store/useUIStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
 import Modal from '@/components/ui/Modal'
@@ -62,10 +62,11 @@ function buildForecastData(
   months: number,
 ): { month: string; total: number }[] {
   const now = new Date()
+  const locale = localeForLanguage(useSettingsStore.getState().language)
   return Array.from({ length: months }, (_, i) => {
     const monthStart = new Date(now.getFullYear(), now.getMonth() + i, 1)
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + i + 1, 0)
-    const label = monthStart.toLocaleString('de-CH', {
+    const label = monthStart.toLocaleString(locale, {
       month: 'short',
       ...(months > 3 ? { year: '2-digit' } : {}),
     })
@@ -82,6 +83,7 @@ function buildForecastData(
 const FORECAST_TABS = [
   { label: '1 Monat', months: 1 },
   { label: '3 Monate', months: 3 },
+  { label: '6 Monate', months: 6 },
   { label: '12 Monate', months: 12 },
 ] as const
 
@@ -102,7 +104,7 @@ export default function Schedules() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null)
-  const [forecastMonths, setForecastMonths] = useState<1 | 3 | 12>(1)
+  const [forecastMonths, setForecastMonths] = useState<1 | 3 | 6 | 12>(1)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [form, setForm] = useState<ScheduleFormData>({
     name: '',
@@ -215,7 +217,7 @@ export default function Schedules() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('schedules.title')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {schedules.filter((s) => s.active).length} aktiv
+            {t('schedules.activeCount', { n: schedules.filter((s) => s.active).length })}
           </p>
         </div>
         <Button onClick={openCreate}>
@@ -265,7 +267,7 @@ export default function Schedules() {
                     </span>
                     {!s.active && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-                        Inaktiv
+                        {t('schedules.inactive')}
                       </span>
                     )}
                   </div>
@@ -282,7 +284,7 @@ export default function Schedules() {
                 <div className="text-right flex-shrink-0">
                   <p className="font-semibold text-gray-900 dark:text-white text-sm">
                     {s.is_variable
-                      ? `variabel ~${formatCurrency(s.estimated_amount ?? 0, currency)}`
+                      ? `${t('schedules.variable')} ~${formatCurrency(s.estimated_amount ?? 0, currency)}`
                       : formatCurrency(s.amount, currency)}
                   </p>
                 </div>
@@ -292,14 +294,14 @@ export default function Schedules() {
                   <button
                     onClick={() => openEdit(s)}
                     className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                    aria-label="Bearbeiten"
+                    aria-label={t('action.edit')}
                   >
                     <Pencil size={14} />
                   </button>
                   <button
                     onClick={() => setDeleteId(s.id)}
                     className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    aria-label="Löschen"
+                    aria-label={t('action.delete')}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -313,7 +315,7 @@ export default function Schedules() {
       {/* Forecast Section */}
       {schedules.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Prognose</h2>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">{t('schedules.forecastTitle')}</h2>
 
           {/* Period Tabs */}
           <div className="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg p-1 w-fit">
@@ -327,7 +329,7 @@ export default function Schedules() {
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                 }`}
               >
-                {tab.months === 1 ? t('schedules.month1') : tab.months === 3 ? t('schedules.month3') : t('schedules.month12')}
+                {tab.months === 1 ? t('schedules.month1') : tab.months === 3 ? t('schedules.month3') : tab.months === 6 ? t('schedules.month6') : t('schedules.month12')}
               </button>
             ))}
           </div>
@@ -347,7 +349,7 @@ export default function Schedules() {
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip
-                formatter={(value: number) => [formatCurrency(value, currency), 'Ausgaben']}
+                formatter={(value: number) => [formatCurrency(value, currency), t('reports.expenses')]}
                 contentStyle={{ fontSize: 12 }}
               />
               <Bar dataKey="total" fill="#6366f1" radius={[4, 4, 0, 0]} />
@@ -395,7 +397,7 @@ export default function Schedules() {
             label={t('schedules.name')}
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="z.B. Netflix Abo"
+            placeholder={t('schedules.namePlaceholder')}
             required
           />
 

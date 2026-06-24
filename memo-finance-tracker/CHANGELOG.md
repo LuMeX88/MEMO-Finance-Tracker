@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.3.0 - 2026-06-24
+
+- **New – Full English / German interface:** the language switch in **Settings**
+  now translates the *entire* app, including the reports, forecast, suggestion
+  cards and receipt-scan messages — no more stray German labels in English mode.
+- **New – Settings now sync across devices:** your **currency** and **language**
+  are stored on the add-on (server-side) instead of only in the browser, so the
+  Home Assistant Companion app shows the same € currency and language you set in
+  the browser instead of falling back to defaults.
+- **New – The expense forecast shows what's inside it:** every month in the
+  forecast is now expandable to list the exact items it contains (fixed and
+  variable schedules with how often they occur, plus planned project costs), and
+  the chart tooltip breaks the total down by source.
+- **New – Flexible forecast horizon:** choose **next month, 3, 6 or 12 months** —
+  both the chart **and** the table now update together when you change it (the
+  table previously stayed on the current month).
+- **New – In-app receipt camera:** "Take photo" now opens a live camera inside
+  the app with capture / retake / use, instead of only opening the gallery in
+  the Home Assistant Companion app. (The Companion app must grant camera
+  permission to its webview; the gallery/file picker remains as a fallback.)
+- **New – Project origin on bookings:** bookings created from a project task now
+  show a **project badge** in the bookings list.
+- **Changed – Editing a project booking:** bookings that belong to a project task
+  can no longer be edited directly (which previously reverted on the next sync).
+  Editing one now opens a prompt that takes you straight to the project to change
+  it there.
+- **Fix – Receipt scan timeouts:** the receipt scan no longer fails with
+  *"Zeitüberschreitung – Beleg konnte nicht gescannt werden"* on weak hardware.
+  The optional on-device AI step is now time-boxed (returning the OCR result if
+  it runs long) and the upload waits longer before giving up.
+
 ## 1.2.2 - 2026-06-24
 
 - **New – Allocate project task costs to a category:** each project task can now

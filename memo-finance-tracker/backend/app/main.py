@@ -59,6 +59,7 @@ from app.models import Category, IntervalType, Project, ProjectColumn, ProjectTa
 from app.routers import categories, forecast, projects, receipts, reports, schedules, suggestions, transactions
 from app.routers import ai
 from app.routers import demo
+from app.routers import settings as settings_router
 from app.routers.projects import reconcile_all_projects
 
 # ---------------------------------------------------------------------------
@@ -208,6 +209,7 @@ app.include_router(suggestions.router, prefix=API_PREFIX)
 app.include_router(forecast.router, prefix=API_PREFIX)
 app.include_router(ai.router, prefix=API_PREFIX)
 app.include_router(demo.router, prefix=API_PREFIX)
+app.include_router(settings_router.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------

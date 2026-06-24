@@ -7,6 +7,14 @@ export interface Category {
   created_at: string
 }
 
+export interface AppSettings {
+  currency: string
+  language: string
+  theme: 'light' | 'dark'
+  default_category_id: number | null
+  updated_at: string
+}
+
 export interface Project {
   id: number
   name: string
@@ -73,6 +81,10 @@ export interface Transaction {
   payment_method: string | null
   note: string | null
   created_at: string
+  // Set by the API for display: present when the booking is linked to a project,
+  // and is_project_task marks an auto-managed project-task mirror (read-only here).
+  is_project_task?: boolean
+  project_name?: string | null
 }
 
 export interface Schedule {
@@ -172,6 +184,16 @@ export interface ScheduleSuggestion {
   created_at: string
 }
 
+export interface ForecastItem {
+  kind: 'fixed' | 'variable' | 'project' | 'average'
+  name: string
+  amount: number
+  interval?: 'weekly' | 'monthly' | 'yearly' | null
+  occurrences?: number | null
+  project_name?: string | null
+  due_date?: string | null
+}
+
 export interface MonthForecast {
   year: number
   month: number
@@ -181,12 +203,14 @@ export interface MonthForecast {
   scheduled_project: number
   variable_avg: number
   total: number
-  is_past: boolean
+  is_current: boolean
+  items: ForecastItem[]
 }
 
 export interface ForecastResponse {
   months: MonthForecast[]
   variable_monthly_avg: number
+  variable_avg_basis_months: number
 }
 
 export interface VersionInfo {

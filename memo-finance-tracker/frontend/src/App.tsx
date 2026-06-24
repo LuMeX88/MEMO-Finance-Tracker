@@ -11,6 +11,7 @@ import ProjectDetailPage from '@/pages/ProjectDetailPage'
 import SettingsPage from '@/pages/SettingsPage'
 import ToastContainer from '@/components/ui/Toast'
 import { useSettingsStore } from '@/store/useSettingsStore'
+import { getSettings } from '@/lib/api'
 import { useEffect } from 'react'
 
 const queryClient = new QueryClient({
@@ -21,6 +22,30 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+// Load the server-side settings once on startup so language/currency/theme are
+// identical across the web browser and the Home Assistant Companion app (which
+// otherwise have isolated localStorage). Falls back to the cached local values.
+function SettingsBootstrap({ children }: { children: React.ReactNode }) {
+  const applyServerSettings = useSettingsStore((s) => s.applyServerSettings)
+
+  useEffect(() => {
+    getSettings()
+      .then((s) =>
+        applyServerSettings({
+          currency: s.currency,
+          language: s.language,
+          theme: s.theme === 'dark' ? 'dark' : 'light',
+          defaultCategoryId: s.default_category_id ?? null,
+        }),
+      )
+      .catch(() => {
+        /* backend not reachable yet — keep the locally cached settings */
+      })
+  }, [applyServerSettings])
+
+  return <>{children}</>
+}
 
 function ThemeProvider({ children }: { children: React.ReactNode }) {
   const theme = useSettingsStore((s) => s.theme)
@@ -40,23 +65,25 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <HashRouter>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="transactions" element={<Transactions />} />
-              <Route path="schedules" element={<Schedules />} />
-              <Route path="reports" element={<Reports />} />
-              <Route path="categories" element={<CategoriesPage />} />
-              <Route path="projects" element={<ProjectsPage />} />
-              <Route path="projects/:id" element={<ProjectDetailPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-            </Route>
-          </Routes>
-          <ToastContainer />
-        </HashRouter>
-      </ThemeProvider>
+      <SettingsBootstrap>
+        <ThemeProvider>
+          <HashRouter>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="transactions" element={<Transactions />} />
+                <Route path="schedules" element={<Schedules />} />
+                <Route path="reports" element={<Reports />} />
+                <Route path="categories" element={<CategoriesPage />} />
+                <Route path="projects" element={<ProjectsPage />} />
+                <Route path="projects/:id" element={<ProjectDetailPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
+            </Routes>
+            <ToastContainer />
+          </HashRouter>
+        </ThemeProvider>
+      </SettingsBootstrap>
     </QueryClientProvider>
   )
 }

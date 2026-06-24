@@ -240,6 +240,20 @@ To enable MQTT in standalone/dev mode, copy `backend/.env.example` to `backend/.
 
 ---
 
+## ✅ Tested environments
+
+MEMO's interface is actively tested on:
+
+- **Google Chrome** (desktop)
+- **Microsoft Edge** (desktop)
+- **Home Assistant Companion app** (Android)
+
+Other modern browsers are expected to work but are not regularly tested. The
+in-app receipt camera requires camera permission to be granted to the Home
+Assistant Companion app's webview.
+
+---
+
 ## ☕ Support
 
 MEMO is free and open-source. If it helps you stay on top of your finances,

@@ -41,3 +41,7 @@ class TransactionResponse(TransactionBase):
 
     id: int
     created_at: datetime
+    # Set by the API: True when this booking is the auto-managed mirror of a
+    # project task and therefore must be edited from the project, not here.
+    is_project_task: bool = False
+    project_name: Optional[str] = None

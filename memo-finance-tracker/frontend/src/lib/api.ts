@@ -16,6 +16,7 @@ import type {
   Transaction,
   VersionInfo,
   AiStatus,
+  AppSettings,
 } from '@/types'
 
 // Resolve the API base URL so it works in every deployment scenario:
@@ -104,6 +105,23 @@ export function updateTransaction(
 
 export function deleteTransaction(id: number): Promise<void> {
   return request<void>(`/transactions/${id}`, { method: 'DELETE' })
+}
+
+// ── Settings ───────────────────────────────────────────────────────
+// Persisted server-side so the web browser and the Home Assistant Companion
+// app (separate webviews) always show the same language and currency.
+
+export function getSettings(): Promise<AppSettings> {
+  return request<AppSettings>('/settings')
+}
+
+export function updateSettings(
+  data: Partial<Omit<AppSettings, 'updated_at'>>,
+): Promise<AppSettings> {
+  return request<AppSettings>('/settings', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
 }
 
 // ── Categories ────────────────────────────────────────────────────────────────
@@ -329,7 +347,9 @@ export async function scanReceipt(file: File): Promise<OcrResult> {
   const form = new FormData()
   form.append('file', file)
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 30_000)
+  // OCR plus the bounded on-device AI fallback can take a while on weak add-on
+  // hardware, so allow generous headroom before giving up.
+  const timeout = setTimeout(() => controller.abort(), 90_000)
   try {
     const res = await fetch(`${BASE_URL}/receipts/scan`, {
       method: 'POST',
