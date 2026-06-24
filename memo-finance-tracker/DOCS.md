@@ -9,7 +9,12 @@ categorization and insights – all running 100% on your own hardware.
 
 - **Dashboard, transactions, schedules, projects and reports** for day-to-day
   money management.
-- **Forecasting** of monthly, quarterly and yearly expenses.
+- **Project management** — plan work as a **Kanban** board or a **Waterfall**
+  timeline, set a budget, and track *forecast* vs *booked* costs. Each task cost
+  can be filed under a **category** and is projected into the expense forecast by
+  its estimated completion date.
+- **Forecasting** of monthly, quarterly and yearly expenses (including planned
+  project task costs).
 - **CSV / PDF export** of reports, generated locally in your browser.
 - **Receipt scanning (OCR)** via camera or file upload, with local Tesseract +
   OpenCV pre-processing.
@@ -127,3 +132,10 @@ app. They are stamped from the build, so they always match the installed release
 
 local. private. yours. MEMO has no accounts, no telemetry and no cloud sync.
 The only outbound request is the one-time AI model download (when AI is enabled).
+
+## Support
+
+MEMO is free and open-source. If it helps you stay on top of your finances,
+consider buying me a coffee — it genuinely helps and is hugely appreciated.
+
+<a href="https://www.buymeacoffee.com/LuMeX88" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" height="60"></a>
